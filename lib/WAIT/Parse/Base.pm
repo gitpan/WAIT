@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Base.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
@@ -17,7 +17,7 @@ use Carp;
 
 sub new {
   my $type = shift;
-  
+
   bless {}, ref($type) || $type;
 }
 

@@ -24,7 +24,7 @@ require Exporter;
 @ISA = qw(Exporter);
 @EXPORT = qw(server);
 
-my($ver) = '$ProjectVersion: 16.2 $ ' =~ /([\d.]+)/; $VERSION = sprintf '%5.3f', $ver/10;
+my($ver) = '$ProjectVersion: 17.1 $ ' =~ /([\d.]+)/; $VERSION = sprintf '%5.3f', $ver/10;
 
 sub server {
   my %opt  = @_;

@@ -1,16 +1,16 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Table.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug  8 13:05:10 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Nov 22 18:44:37 1998
+# Last Modified On: Sun May 30 20:42:30 1999
 # Language        : CPerl
-# Update Count    : 51
+# Update Count    : 56
 # Status          : Unknown, Use with caution!
-# 
+#
 # Copyright (c) 1996-1997, Ulrich Pfeifer
-# 
+#
 
 =head1 NAME
 
@@ -25,9 +25,13 @@ WAIT::Table -- Module for maintaining Tables / Relations
 =cut
 
 package WAIT::Table;
+
+use WAIT::Table::Handle ();
 require WAIT::Parse::Base;
+
 use strict;
 use Carp;
+# use autouse Carp => qw( croak($) );
 use DB_File;
 use Fcntl;
 
@@ -35,37 +39,56 @@ my $USE_RECNO = 0;
 
 =head2 Creating a Table.
 
-The constructor WAIT::Table-<gt>new is normally called via the
+The constructor WAIT::Table-E<gt>new is normally called via the
 create_table method of a database handle. This is not enforced, but
-creating a table doesn not make any sense unless the table is
+creating a table does not make any sense unless the table is
 registered by the database because the latter implements persistence
 of the meta data. Registering is done automatically by letting the
-database handle create a table.
+database handle the creation of a table.
 
-  my $db = create WAIT::Database name => 'sample';
-  my $tb = $db->create_table (name     => 'test',
-                              attr     => ['docid', 'headline'],
-                              layout   => $layout,
-                              access   => $access,
-                             );
+  my $db = WAIT::Database->create(name => 'sample');
+  my $tb = $db->create_table(name     => 'test',
+                             access   => $access,
+                             layout   => $layout,
+                             attr     => ['docid', 'headline'],
+                            );
 
 The constructor returns a handle for the table. This handle is hidden by the
 table module, to prevent direct access if called via Table.
 
 =over 10
 
-=item C<access> => I<accesobj>
+=item C<access> => I<accessobj>
 
-A reference to a acces object for the external parts (attributes) of
+A reference to an access object for the external parts (attributes) of
 tuples. As you may remember, the WAIT System does not enforce that
 objects are completely stored inside the system to avoid duplication.
-There is no (strong) point in storing all you HTML-Documents inside
+There is no (strong) point in storing all your HTML documents inside
 the system when indexing your WWW-Server.
+
+The access object is designed to work like as a tied hash. You pass
+the refernce to the object, not the tied hash though. An example
+implementation of an access class that works for manpages is
+WAIT::Document::Nroff.
+
+The implementation needs to take into account that WAIT will keep this
+object in a Data::Dumper or Storable database and re-use it when sman
+is run. So it is not good enough if we can produce the index with it
+now, when we create or actively access the table, WAIT also must be
+able to retrieve documents on its own, when we are in a different
+context. This happens specifically in a retrieval. To get this working
+seemlessly, the access-defining class must implement a close method.
+This method will be called before the Data::Dumper dump takes place.
+In that moment the access-defining class must get rid of all data
+structures that cannot be reconstructed via the Data::Dumper dump,
+such as database handles or C pointers.
 
 =item C<file> => I<fname>
 
 The filename of the records file. Files for indexes will have I<fname>
-as prefix. I<Mandatory>
+as prefix. I<Mandatory>, but usually taken care of by the
+WAIT::Database handle when the constructor is called via
+WAIT::Database::create_table().
 
 =item C<name> => I<name>
 
@@ -73,21 +96,31 @@ The name of this table. I<Mandatory>
 
 =item C<attr> => [ I<attr> ... ]
 
-A reference to an array of attribute names. I<Mandatory>
+A reference to an array of attribute names. WAIT will keep the
+contents of these attributes in its table. I<Mandatory>
 
 =item C<djk> => [ I<attr> ... ]
 
 A reference to an array of attribute names which make up the
-I<disjointness key>. Don't think about it - i's of no use yet;
+I<disjointness key>. Don't think about it - it's of no use yet;
 
 =item C<layout> => I<layoutobj>
 
-A reference to an external parser object. Defaults to anew instance of
-C<WAIT::Parse::Base>
+A reference to an external parser object. Defaults to a new instance
+of C<WAIT::Parse::Base>. For an example implementation see
+WAIT::Parse::Nroff. A layout class can be implemented as a singleton
+class if you so like.
 
-=item C<access> => I<accesobj>
+=item C<keyset> => I<keyset>
 
-A reference to a acces object for the external parts of tuples.
+The set of attributes needed to identify a record. Defaults to all
+attributes.
+
+=item C<invindex> => I<inverted index>
+
+A reference to an anon array defining attributes of each record that
+need to be indexed. See the source of smakewhatis for how to set this
+up.
 
 =back
 
@@ -98,9 +131,15 @@ sub new {
   my %parm = @_;
   my $self = {};
 
+  # Check for mandatory attrs early
+  $self->{name}     = $parm{name}     or croak "No name specified";
+  $self->{attr}     = $parm{attr}     or croak "No attributes specified";
+
   # Do that before we eventually add '_weight' to attributes.
   $self->{keyset}   = $parm{keyset}   || [[@{$parm{attr}}]];
+
   $self->{mode}     = O_CREAT | O_RDWR;
+
   # Determine and set up subclass
   $type = ref($type) || $type;
   if (defined $parm{djk}) {
@@ -119,11 +158,11 @@ sub new {
   }
 
   $self->{file}     = $parm{file}     or croak "No file specified";
-  if (-d  $self->{file} or !mkdir($self->{file}, 0775)) {
+  if (-d  $self->{file}){
+    warn "Warning: Directory '$self->{file}' already exists\n";
+  } elsif (!mkdir($self->{file}, 0775)) {
     croak "Could not 'mkdir $self->{file}': $!\n";
   }
-  $self->{name}     = $parm{name}     or croak "No name specified";
-  $self->{attr}     = $parm{attr}     or croak "No attributes specified";
   $self->{djk}      = $parm{djk}      if defined $parm{djk};
   $self->{layout}   = $parm{layout} || new WAIT::Parse::Base;
   $self->{access}   = $parm{access} if defined $parm{access};
@@ -142,7 +181,7 @@ sub new {
     my $att  = shift @{$parm{invindex}};
     my @spec = @{shift @{$parm{invindex}}};
     my @opt;
-    
+
     if (ref($spec[0])) {
       carp "Secondary pipelines are deprecated\n";
       @opt = %{shift @spec};
@@ -168,12 +207,12 @@ table!
 
 sub create_index {
   my $self= shift;
-  
+
   croak "Cannot create index for table aready populated"
     if $self->{nextk} > 1;
-  
+
   require WAIT::Index;
-  
+
   my $name = join '-', @_;
   $self->{indexes}->{$name} =
     new WAIT::Index file => $self->{file}.'/'.$name, attr => $_;
@@ -196,17 +235,17 @@ set attributes specified when the table was created.
 
 =item C<pipeline>
 
-A piplines specification is a reference to and array of method names
-(from package C<WAIT::Filter>) which are to applied in sequence to the
-contents of the named attribute. The attribute name may not be in the
-attribute list.
+A piplines specification is a reference to an array of method names
+(from package C<WAIT::Filter>) which are to be applied in sequence to
+the contents of the named attribute. The attribute name may not be in
+the attribute list.
 
 =item C<predicate>
 
 An indication which predicate the index implements. This may be
 e.g. 'plain', 'stemming' or 'soundex'. The indicator will be used for
 query processing. Currently there is no standard set of predicate
-names. The predicate defaults to the last member of the ppline if
+names. The predicate defaults to the last member of the pipeline if
 omitted.
 
 =back
@@ -224,10 +263,10 @@ sub create_inverted_index {
   croak "No pipeline specified"  unless $parm{pipeline};
 
   $parm{predicate} ||= $parm{pipeline}->[-1];
-  
+
   croak "Cannot create index for table aready populated"
     if $self->{nextk} > 1;
-  
+
   require WAIT::InvertedIndex;
 
   # backward compatibility stuff
@@ -235,7 +274,7 @@ sub create_inverted_index {
   for (qw(attribute pipeline predicate)) {
     delete $opt{$_};
   }
-  
+
   my $name = join '_', ($parm{attribute}, @{$parm{pipeline}});
   my $idx = new WAIT::InvertedIndex(file   => $self->{file}.'/'.$name,
                                     filter => [@{$parm{pipeline}}], # clone
@@ -340,7 +379,7 @@ sub open {
 sub fetch_extern {
   my $self  = shift;
 
-  print "#@_", $self->{'access'}->{Mode}, "\n";
+  # print "#@_", $self->{'access'}->{Mode}, "\n"; # DEBUGGING?
   if (exists $self->{'access'}) {
     mrequire ref($self->{'access'});
     $self->{'access'}->FETCH(@_);
@@ -358,7 +397,7 @@ sub _find_index {
   my (@att) = @_;
   my %att;
   my $name;
-  
+
   @att{@att} = @att;
 
   KEY: for $name (keys %{$self->{indexes}}) {
@@ -375,8 +414,8 @@ sub have {
   my $self  = shift;
   my %parm  = @_;
 
-  my $index = $self->_find_index(keys %parm);
-  croak "No index found" unless $index;
+  my $index = $self->_find_index(keys %parm) or return; # no index-no have
+
   defined $self->{db} or $self->open;
   return $index->have(@_);
 }
@@ -386,6 +425,9 @@ sub insert {
   my %parm  = @_;
 
   defined $self->{db} or $self->open;
+
+  # We should move all writing methods to a subclass to check only once
+  $self->{mode} & O_RDWR or croak "Cannot insert into table opened in RD_ONLY mode";
 
   my $tuple = join($;, map($parm{$_} || '', @{$self->{attr}}));
   my $key;
@@ -416,7 +458,7 @@ sub insert {
         $idx->remove($key, %parm);
       }
       return undef;
-    } 
+    }
   }
   if (defined $self->{inverted}) {
     my $att;
@@ -432,7 +474,7 @@ sub insert {
 
 sub sync {
   my $self  = shift;
-  
+
   for (values %{$self->{indexes}}) {
     map $_->sync, $_;
   }
@@ -449,7 +491,7 @@ sub fetch {
   my $key   = shift;
 
   return () if exists $self->{deleted}->{$key};
-  
+
   defined $self->{db} or $self->open;
   if ($USE_RECNO) {
     $self->unpack($self->{db}->[$key]);
@@ -536,6 +578,13 @@ sub close {
   }
 
   1;
+}
+
+sub DESTROY {
+  my $self = shift;
+
+  warn "Table handle destroyed without closing it first"
+    if $self->{db} and $self->{mode}&O_RDWR;
 }
 
 sub open_scan {
@@ -644,7 +693,9 @@ sub hilight_positions {
   my %pos;
 
   if (defined $raw) {
-    for (@{$self->{inverted}->{$attr}}) {
+    for (@{$self->{inverted}->{$attr}}) { # objects of type
+                                          # WAIT::InvertedIndex for
+                                          # this index field $attr
       my $name = $_->name;
       if (exists $raw->{$name}) {
         my %qt;
@@ -678,13 +729,14 @@ sub hilight_positions {
 }
 
 sub hilight {
-  my ($tb, $text, $query, $raw) = @_;
-  my $type = $tb->layout();
+  my ($tb, $buf, $qplain, $qraw) = @_;
+  my $layout = $tb->layout();
+
   my @result;
 
-  $query ||= {};
-  $raw   ||= {};
-  my @ttxt = $type->tag($text);
+  $qplain ||= {};
+  $qraw   ||= {};
+  my @ttxt = $layout->tag($buf);
   while (@ttxt) {
     no strict 'refs';
     my %tag = %{shift @ttxt};
@@ -692,9 +744,9 @@ sub hilight {
     my $fld;
 
     my %hl;
-    for $fld (grep defined $tag{$_}, keys %$query, keys %$raw) {
+    for $fld (grep defined $tag{$_}, keys %$qplain, keys %$qraw) {
       my $hp = $tb->hilight_positions($fld, $txt,
-                                      $query->{$fld}, $raw->{$fld});
+                                      $qplain->{$fld}, $qraw->{$fld});
       for (keys %$hp) {
         if (exists $hl{$_}) {   # -w ;-(
           $hl{$_} = max($hl{$_}, $hp->{$_});
@@ -720,4 +772,3 @@ sub hilight {
 }
 
 1;
-

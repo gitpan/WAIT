@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Nroff.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer

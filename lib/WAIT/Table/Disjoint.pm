@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Disjoint.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
@@ -28,12 +28,12 @@ sub fetch {
   my $self = shift;
   my $key   = shift;
   my $name = $self->{name};
-  
-  my %tp = $self->SUPER::fetch($key);
-  if (%tp) {
-    $tp{'_ee'} = join ('_', map($tp{$_} || 'undef', @{$self->{djk}}))."_$key";
+
+  my %tattr = $self->SUPER::fetch($key);
+  if (%tattr) {
+    $tattr{'_ee'} = join ('_', map($tattr{$_} || 'undef', @{$self->{djk}}))."_$key";
   }
-  %tp;
+  %tattr;
 }
 
 1;

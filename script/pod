@@ -1,34 +1,8 @@
-#!/bin/sh -- # -*- perl -*- -w
-eval 'exec perl -S $0 "$@"'
-  if 0;
-
-use strict;
-
-use Config;
-use File::Basename qw(fileparse);
-
-my($file, $path) = fileparse($0);
-$file =~ s!\.PL$!!i;
-chdir($path)         or die "Couldn't chdir to `$path': $!\n";
-
-print "Extracting $file\n";
-
-open(OUT, "> $file") or die "Couldn't create `$file': $!\n";
-print OUT "$Config{'startperl'} -w\n";
-while (<DATA>) {
-  print OUT
-}
-close(OUT)           or die "Couldn't close `$file': $!\n";
-
-chmod(0755, $file)   or die "Couldn't chmod 744 on `$file': $!\n";
-
-exec("$Config{'eunicefix'} $file") if $Config{'eunicefix'} ne ':';
-
-__END__
-######################### -*- Mode: Perl -*- #########################
+#!/usr/bin/perl -w
+######################### -*- Mode: Cperl -*- #########################
 ##
-## $Basename: pod.PL $
-## $Revision: 1.6 $
+## $Basename: pod $
+## $Revision: 1.7 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Mon Dec 16 09:46:40 1996

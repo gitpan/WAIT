@@ -1,40 +1,14 @@
-#!/bin/sh -- # -*- perl -*- -w
-eval 'exec perl -S $0 "$@"'
-  if 0;
-
-use strict;
-
-use Config;
-use File::Basename qw(fileparse);
-
-my($file, $path) = fileparse($0);
-$file =~ s!\.PL$!!i;
-chdir($path)         or die "Couldn't chdir to `$path': $!\n";
-
-print "Extracting $file\n";
-
-open(OUT, "> $file") or die "Couldn't create `$file': $!\n";
-print OUT "$Config{'startperl'} -w\n";
-while (<DATA>) {
-  print OUT
-}
-close(OUT)           or die "Couldn't close `$file': $!\n";
-
-chmod(0755, $file)   or die "Couldn't chmod 744 on `$file': $!\n";
-
-exec("$Config{'eunicefix'} $file") if $Config{'eunicefix'} ne ':';
-
-__END__
+#!/usr/local/perl5.005_56.Mar06/bin/perl -w
 ######################### -*- Mode: Perl -*- #########################
 ##
-## $Basename: smakewhatis.PL $
-## $Revision: 1.6 $
+## $Basename: pmakewhatis $
+## $Revision: 1.7 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Mon Sep  2 12:57:12 1996
 ##
 ## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Sun Nov 22 18:44:34 1998
+## Last Modified On : Sun Nov 22 18:44:35 1998
 ## 
 ## Copyright (c) 1996-1997, Ulrich Pfeifer
 ## 
@@ -53,15 +27,15 @@ use File::Path;
 use DB_File;
 use Getopt::Long;
 
-require WAIT::Database;
 require WAIT::Config;
-require WAIT::Parse::Nroff;
-require WAIT::Document::Nroff;
+require WAIT::Database;
+require WAIT::Parse::Pod;
+require WAIT::Document::Find;
 
 
 my %OPT = (database => 'DB',
            dir      => $WAIT::Config->{WAIT_home} || '/tmp',
-           table    => 'man',
+           table    => 'pod',
            clean    => 0,
            remove   => 0,
           );
@@ -75,7 +49,7 @@ GetOptions(\%OPT,
           ) || die "Usage: ...\n";
 
 my $db;
-if ($OPT{clean} and -d "$OPT{dir}/$OPT{database}") {
+if ($OPT{clean} and -d "$OPT{dir}/$OPT{database}/$OPT{table}") {
   eval {
     my $tmp = WAIT::Database->open(name        => $OPT{database},
                                    'directory' => $OPT{dir})
@@ -86,7 +60,6 @@ if ($OPT{clean} and -d "$OPT{dir}/$OPT{database}") {
     rmtree("$OPT{dir}/$OPT{database}/$OPT{table}",1,1)
       if -d "$OPT{dir}/$OPT{database}/$OPT{table}";
   };
-  exit;
 }
 unless (-d "$OPT{dir}/$OPT{database}") {
   $db = WAIT::Database->create(name       => $OPT{database},
@@ -100,21 +73,28 @@ unless (-d "$OPT{dir}/$OPT{database}") {
 
 
 
-my $layout= new WAIT::Parse::Nroff;
+my $layout= new WAIT::Parse::Pod;
 my $stem = [{
-             'prefix'    => ['unroff', 'isotr', 'isolc'],
-             'intervall' => ['unroff', 'isotr', 'isolc'],
-            },'unroff', 'isotr', 'isolc', 'split2', 'stop', 'Stem'];
+             'prefix'    => ['isotr', 'isolc'],
+             'intervall' => ['isotr', 'isolc'],
+            }, 'isotr', 'isolc', 'split2', 'stop', 'Stem'];
 my $text = [{
-             'prefix'    => ['unroff', 'isotr', 'isolc'],
-             'intervall' => ['unroff', 'isotr', 'isolc'],
+             'prefix'    => ['isotr', 'isolc'],
+             'intervall' => ['isotr', 'isolc'],
             },
-             'unroff', 'isotr', 'isolc', 'split2', 'stop'];
-my $sound = ['unroff', 'isotr', 'isolc', 'split2', 'Soundex'],;
+             'isotr', 'isolc', 'split2', 'stop'];
+my $sound = ['isotr', 'isolc', 'split2', 'Soundex'],;
 
 my %D;
 
-my $access = tie %D, WAIT::Document::Nroff, 'nroff -man';
+my @DIRS;
+if (@ARGV) {
+  @DIRS = @ARGV;
+} else {
+  @DIRS  = grep $_ !~ /^\./, @INC;
+}
+
+my $access = tie %D, 'WAIT::Document::Find', sub { $_[0] =~ /\.(pod|pm)$/}, @DIRS;
 die $@ unless defined $access;
 
 my $tb = $db->table(name => $OPT{table}) ||
@@ -138,32 +118,14 @@ my $tb = $db->table(name => $OPT{table}) ||
   );
 die unless $tb;
 
-my @DIRS;
-if (@ARGV) {
-  @DIRS = @ARGV;
-} else {
-  @DIRS  = @{$WAIT::Config->{manpath}};
-}
 
-my $mandir;
-for $mandir (grep -d $_, @DIRS) {
-  opendir(DIR, $mandir) or warn "Could not open dir '$mandir': $!";
-  my @mdir =  grep -d "$mandir/$_", grep /^man/, readdir(DIR);
-  closedir DIR;
-  my $section;
-  for $section (@mdir) {
-    my $file;
-    print STDERR "Scanning '$mandir/$section' ...\n";
-    opendir(DIR, "$mandir/$section")
-      or warn "Could not open dir '$mandir/section': $!";
-    my @files =  grep -f "$mandir/$section/$_", grep $_ !~ /^\./, readdir(DIR);
-    closedir DIR;
-    for $file ( @files ) {
-      print STDERR "Indexing '$mandir/$section/$file' ... ";
-      &index("$mandir/$section/$file");
-    }
+my $podfile = $access->FIRSTKEY;
+do {
+  unless ($podfile =~ /^$OPT{dir}/o) {
+    &index($podfile);
   }
-}
+} while ($podfile = $access->NEXTKEY);
+
 $db->close();
 exit;
 
@@ -182,22 +144,17 @@ sub index {
     return;
   }
 
-  if (-s $did < 100) {
-    print "too small\n";
-    return;
-  }
-
   my $value = $D{$did};
   unless (defined $value) {
     print "unavailable\n";
   }
-  printf STDERR "ok [%d]\n", ++$NO;
+  printf STDERR "ok [%d] ", ++$NO;
   
-  my $record = $layout->split($value);
+  my $record   = $layout->split($value);
   $record->{size} = length($value);
   my $headline = $record->{name} || $did;
   $headline =~ s/\s+/ /g; $headline =~ s/^\s+//;
-  printf "%s\n", substr($headline,0,80);
+  printf "%s\n", substr($headline,0,70);
   if ($OPT{remove}) {
     $tb->delete('docid' => $did, headline => $headline, %{$record});
   } else {
@@ -213,7 +170,7 @@ __END__
 
 =head1 NAME
 
-smakewhatis - generate a manual database for sman
+pmakewhatis - generate a manual database for sman
 
 =head1 SYNOPSIS
 
@@ -226,9 +183,9 @@ B<smakewhatis>
 
 =head1 DESCRIPTION
 
-B<Smakewhatis> generates/updates databases for B<sman>(1). If
-I<mandir>s are specified, these are used. Otherwise the confiigured
-default directories are indexed.
+B<Pmakewhatis> generates/updates databases for B<sman>(1). If
+I<mandir>s are specified, these are used. Otherwise directories in
+C<@INC> are indexed.
 
 =head2 OPTIONS
 
@@ -244,7 +201,7 @@ Change the default database directory to I<database directory>.
 
 =item B<-table> I<name>
 
-Use I<name> instead of C<man> as table name.
+Use I<name> instead of C<pod> as table name.
 
 =item B<-clean>
 
@@ -253,7 +210,7 @@ Clean B<database> before indexing.
 =item B<-remove>
 
 Remove the selected directories from the database instead of
-adding/updating. This works only for the manuals which are unchanged
+adding/updating. This works only for the pod files which are unchanged
 since the indexing.
 
 =head1 SEE ALSO

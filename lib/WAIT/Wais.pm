@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #                              -*- Mode: Perl -*- 
 # $Basename: Wais.pm $
-# $Revision: 1.3 $
+# $Revision: 1.4 $
 # Author          : Ulrich Pfeifer
 # Created On      : Mon Sep 16 11:08:04 1996
 # Last Modified By: Ulrich Pfeifer
@@ -9,10 +9,10 @@
 # Language        : CPerl
 # Update Count    : 156
 # Status          : Unknown, Use with caution!
-# 
+#
 # (C) Copyright 1997, Ulrich Pfeifer, all rights reserved.
-# 
-# 
+#
+#
 
 package WAIT::Wais;
 
@@ -90,7 +90,7 @@ sub Retrieve {
   my %parm = @_;
   my $result = new WAIT::Wais::Result;
   my $tb = _table($parm{database});
-  
+
   unless (defined $tb) {
     $result->add(Tag => 'document', Error => 'Could not open database');
     return $result;
@@ -190,7 +190,7 @@ sub new {
   my $type = shift;
   my %par  = @_;
   my $self = {'header' => [], 'diagnostics' => [], 'text' => ''};
-  
+
   bless $self, $type;
 }
 
@@ -213,7 +213,7 @@ sub _header {
   } else {
     $types = [keys %FORMATTER];
   }
-  
+
   [$score, $lines, $length, $headline, $types,
    WAIT::Wais::Docid->new('wait',$database, $did)];
 }
@@ -223,7 +223,7 @@ sub add {
   my %parm = @_;
   my $tag  = $parm{Tag};
   my $docid;
-  
+
   if ($parm{Postings}) {
     my @result;
     my @left  = @{$self->{'header'}};
@@ -266,19 +266,19 @@ sub add {
 
 sub diagnostics {
   my $self = shift;
-  
+
   @{$self->{'diagnostics'}};
 }
 
 sub header {
   my $self = shift;
-  
+
   @{$self->{'header'}};
 }
 
 sub text {
   my $self = shift;
-  
+
   $self->{'text'};
 }
 

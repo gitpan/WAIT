@@ -1,7 +1,7 @@
 #!/usr/bin/perl
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*-
 # $Basename: WAIT.pm $
-# $Revision: 1.4 $
+# $Revision: 1.6 $
 # Author          : Ulrich Pfeifer
 # Created On      : Wed Nov  5 16:59:32 1997
 # Last Modified By: Ulrich Pfeifer
@@ -9,17 +9,17 @@
 # Language        : CPerl
 # Update Count    : 4
 # Status          : Unknown, Use with caution!
-# 
+#
 # (C) Copyright 1997, Ulrich Pfeifer, all rights reserved.
-# 
-# 
+#
+#
 
 package WAIT;
 require DynaLoader;
 use vars qw($VERSION @ISA);
 @ISA = qw(DynaLoader);
 
-$VERSION = sprintf '%5.3f', map $_/10,'$ProjectVersion: 16.2 $ ' =~ /([\d.]+)/;
+$VERSION = sprintf '%.4f', map $_/10,'$ProjectVersion: 17.1 $ ' =~ /([\d.]+)/;
 
 bootstrap WAIT $VERSION;
 
@@ -27,7 +27,11 @@ __END__
 
 =head1 NAME
 
-WAIT - a rewrite of the freeWAIS-sf engine in Perl
+WAIT - a rewrite of the freeWAIS-sf engine in Perl and XS
+
+=head1 SYNOPSIS
+
+A Synopsis is not yet available.
 
 =head1 Status of this document
 
@@ -75,11 +79,11 @@ time in addition a B<query> and a B<display> module must be choosen.
 
 =head2 Access
 
-The access module defines which documents where members of a
-database. Usually an access module is a tied hash, whose keys are the
-Ids of the documents (did = document id) and whose values are the
-documents themselves. The indexing process loops over the keys using
-C<FIRSTKEY> and C<NEXTKEY>. Documents are retrieved with C<FETCH>.
+The access module defines which documents are members of a database.
+Usually an access module is a tied hash, whose keys are the Ids of the
+documents (did = document id) and whose values are the documents
+themselves. The indexing process loops over the keys using C<FIRSTKEY>
+and C<NEXTKEY>. Documents are retrieved with C<FETCH>.
 
 By convention access modules should be members of the
 C<WAIT::Document> hierarchy. Have a look at the
@@ -88,12 +92,12 @@ C<WAIT::Document::Split> module to get the idea.
 
 =head2 Parse
 
-The task parse module is to split the documents into logical parts
-via the C<split> method.  E.g. the C<WAIT::Parse::Nroff> splits
+The task of the parse module is to split the documents into logical
+parts via the C<split> method. E.g. the C<WAIT::Parse::Nroff> splits
 manuals piped through B<nroff>(1) into the sections I<name>,
 I<synopsis>, I<options>, I<description>, I<author>, I<example>,
 I<bugs>, I<text>, I<see>, and I<environment>. Here is the
-implementation of C<WAIT::Parse::Base> which handes documents with a
+implementation of C<WAIT::Parse::Base> which handles documents with a
 pretty simple tagged format:
 
   AU: Pfeifer, U.; Fuhr, N.; Huynh, T.
@@ -110,7 +114,7 @@ pretty simple tagged format:
   sub split {                     # called as method
     my %result;
     my $fld;
-  
+
     for (split /\n/, $_[1]) {
       if (s/^(\S+):\s*//) {
         $fld = lc $1;
@@ -118,7 +122,7 @@ pretty simple tagged format:
       $result{$fld} .= $_ if defined $fld;
     }
     return \%result;
-  } 
+  }
 
 Since the original document cannot be reconstructed from its
 attributes, we need a second method (I<tag>) which marks the regions
@@ -131,7 +135,7 @@ regions.
   sub tag {
     my @result;
     my $tag;
-    
+
     for (split /\n/, $_[1]) {
       next if /^\w\w:\s*$/;
       if (s/^(\S+)://) {
@@ -145,7 +149,7 @@ regions.
       }
     }
     return @result;               # we don't go for speed
-  } 
+  }
 
 Obviously one could implement C<split> via C<tag>. The reason for
 having two functions is speed. We need to call C<split> for each
@@ -179,32 +183,13 @@ words shorter than two characters. C<stop> removes the freeWAIS-sf
 stopwords and C<Stem> applies the Porter algorithm for computing the
 stem of the words.
 
-The filter definition for a collection defines a set of piplines for
+The filter definition for a collection defines a set of pipelines for
 the attributes and modifies the pipelines which should be used for
 prefix and interval searches.
 
-Here is a complete example:
+Several complete working examples come with WAIT in the script
+directory. It is recommended to follow the pattern of the scripts
+smakewhatis and sman.
 
-
-  my $stem  = [{
-                'prefix'    => ['unroff', 'isotr', 'isolc'],
-                'intervall' => ['unroff', 'isotr', 'isolc'],
-               },'unroff', 'isotr', 'isolc', 'split2', 'stop', 'Stem'];
-  my $text  = [{
-                'prefix'    => ['unroff', 'isotr', 'isolc'],
-                'intervall' => ['unroff', 'isotr', 'isolc'],
-               },
-                'unroff', 'isotr', 'isolc', 'split2', 'stop'];
-  my $sound = ['unroff', 'isotr', 'isolc', 'split2', 'Soundex'];
-  
-  my $spec  = [
-      'name'         => $stem,
-      'synopsis'     => $stem,
-      'bugs'         => $stem,
-      'description'  => $stem,
-      'text'         => $stem,
-      'environment'  => $text,
-      'example'      => $text,  'example' => $stem,
-      'author'       => $sound, 'author'  => $stem,
-     ]
+=cut
 

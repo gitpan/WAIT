@@ -1,6 +1,6 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # $Basename: Filter.pm $
-# $Revision: 1.7 $
+# $Revision: 1.8 $
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug 15 18:09:51 1996
@@ -9,9 +9,9 @@
 # Language        : CPerl
 # Update Count    : 105
 # Status          : Unknown, Use with caution!
-# 
+#
 # Copyright (c) 1996-1997, Ulrich Pfeifer
-# 
+#
 package WAIT::Filter;
 require WAIT;
 use strict;
@@ -31,9 +31,11 @@ require Exporter;
                 isouc disouc
                 isotr disotr
                 stop grundform
+                utf8iso
                );
+# (most implemented in WAIT.xs)
 
-$VERSION = substr q$Revision: 1.7 $, 10;
+$VERSION = substr q$Revision: 1.8 $, 10;
 
 sub split {
   map split(' ', $_), @_;
@@ -75,8 +77,15 @@ sub AUTOLOAD {
       if $@ ne '';
     *decode_entities = HTML::Entities->can('decode_entities');
     goto &decode_entities;
+  } elsif ($func =~ /^d?utf8iso$/) {
+    require WAIT::Filter::utf8iso;
+    croak "Your perl version must at least be 5.00556 to use '$func'"
+	if $] < 5.00556;
+    no strict 'refs';
+    *$func = \&{"WAIT::Filter::utf8iso::$func"};
+    goto &utf8iso;
   }
-  croak "Your vendor has not defined WAIT::Filter::$func";
+  Carp::confess "Class WAIT::Filter::$func not found";
 }
 
 while (<DATA>) {
@@ -204,7 +213,7 @@ vfor
 former
 formerly
 forty
-found "
+found
 four
 from
 further
@@ -568,15 +577,25 @@ WAIT::Filter - Perl extension providing the basic freeWAIS-sf reduction function
 
 =head1 SYNOPSIS
 
-  use WAIT::Filter qw(Stem Soundex Phonix isolc isouc disolc disouc);
+  use WAIT::Filter qw(Stem Soundex Phonix isolc disolc isouc disouc
+                      isotr disotr stop grundform utf8iso);
 
-  $stem  = Stem($word);
-  $scode = Soundex($word);
-  $pcode = Phonix($word);
-  $lword = isolc($word);
-  $uword = isouc($word);
+  $stem   = Stem($word);
+  $scode  = Soundex($word);
+  $pcode  = Phonix($word);
+  $lword  = isolc($word);
   disolc($word);
+  $uword  = isouc($word);
   disouc($word);
+  $trword = isotr($word);
+  disotr($word);
+  $word   = stop($word);
+  $word   = grundform($word);
+
+  @words = WAIT::Filter::split($word);
+  @words = WAIT::Filter::split2($word);
+  @words = WAIT::Filter::split3($word);
+  @words = WAIT::Filter::split4($word); # arbitrary numbers allowed
 
 =head1 DESCRIPTION
 
@@ -631,12 +650,12 @@ There are some additional function which transpose some/most ISOlatin1
 characters to upper and lower case. To allow for maximum speed there
 are also I<destructive> versions which change the argument instead of
 allocating a copy which is returned. For convenience, the destructive
-version also B<returns> the argument. So both of the following is
+version also B<returns> the argument. So all of the following is
 valid and C<$word> will contain the lowercased string.
 
+  $word = isolc($word);
   $word = disolc($word);
   disolc($word);
-  
 
 Here are the hardcoded characters which are recognized:
 
@@ -654,6 +673,34 @@ transposes to lower case.
 =item  B<disouc>C<($word)>
 
 transposes to upper case.
+
+=item C<$new = >B<isotr>C<($word)>
+
+=item  B<disotr>C<($word)>
+
+Remove non-letters according to the above table.
+
+=item C<$new = >B<stop>C<($word)>
+
+Returns an empty string if $word is a stopword.
+
+=item C<$new = >B<grundform>C<($word)>
+
+Calls Text::German::reduce
+
+=item C<$new = >B<utf8iso>C<($word)>
+
+Convert UTF8 encoded strings to ISO-8859-1. WAIT currently is
+internally based on the Latin1 character set, so if you process
+anything in a different encoding, you should convert to Latin1 as the
+first filter.
+
+=item split, split2, split3, ...
+
+The splitN funtions all take a scalar as input and return a list of
+words. Split acts just like the perl split(' '). Split2 eliminates all
+words from the list that are shorter than 2 characters (bytes), split3
+eliminates those shorter than 3 characters (bytes) and so on.
 
 =head1 AUTHOR
 

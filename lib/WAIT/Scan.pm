@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Scan.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
@@ -52,10 +52,10 @@ sub next {
   unless ($self->{code}) {
     $self->_next;
   } else {
-    my %tp = $self->_next;
-    if (%tp) {
-      if (&{$self->{code}}(\%tp)) {
-        %tp;
+    my %tattr = $self->_next;
+    if (%tattr) {
+      if (&{$self->{code}}(\%tattr)) {
+        %tattr;
       } else {
         $self->next;
       }

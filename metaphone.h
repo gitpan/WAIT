@@ -13,6 +13,9 @@
  * 
  * $Locker:  $
  * $Log: metaphone.h,v $
+ * Revision 1.1  1999/05/17 13:37:10  k
+ * Initial revision
+ *
  * Revision 1.7  1997/02/04 15:44:38  pfeifer
  * *** empty log message ***
  *

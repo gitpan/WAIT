@@ -1,34 +1,8 @@
-#!/bin/sh -- # -*- perl -*- -w
-eval 'exec perl -S $0 "$@"'
-  if 0;
-
-use strict;
-
-use Config;
-use File::Basename qw(fileparse);
-
-my($file, $path) = fileparse($0);
-$file =~ s!\.PL$!!i;
-chdir($path)         or die "Couldn't chdir to `$path': $!\n";
-
-print "Extracting $file\n";
-
-open(OUT, "> $file") or die "Couldn't create `$file': $!\n";
-print OUT "$Config{'startperl'} -w\n";
-while (<DATA>) {
-  print OUT
-}
-close(OUT)           or die "Couldn't close `$file': $!\n";
-
-chmod(0755, $file)   or die "Couldn't chmod 744 on `$file': $!\n";
-
-exec("$Config{'eunicefix'} $file") if $Config{'eunicefix'} ne ':';
-
-__END__
+#!/usr/local/perl5.005_56.Mar06/bin/perl -w
 ######################### -*- Mode: Perl -*- #########################
 ##
-## $Basename: bibdb.PL $
-## $Revision: 1.4 $
+## $Basename: bibdb $
+## $Revision: 1.6 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Mon Sep  2 12:57:12 1996
@@ -179,7 +153,7 @@ or F</usr/local/ls6/tex/bib/bibdb.ste>.
 
 =item B<-clean> / B<-noclean>
 
-Clean the table befor indexing. Default is B<off>.
+Clean the table before indexing. Default is B<off>.
 
 =item B<-database> I<dbname>
 
@@ -187,7 +161,7 @@ Specify database name. Default is F<DB>.
 
 =item B<-dir> I<directory>
 
-Alternate directory were databases are located. Default is the
+Alternate directory where databases are located. Default is the
 directory specified during configuration of WAIT.
 
 =item B<-table> I<table name>
@@ -196,4 +170,4 @@ Specify an alternate table name. Default is C<bibdb>.
 
 =head1 AUTHOR
 
-Ulrich Pfeifer E<lt>F<pfeifer@ls6.informatik.uni-dortumund.de>E<gt>
+Ulrich Pfeifer E<lt>F<pfeifer@ls6.informatik.uni-dortmund.de>E<gt>

@@ -1,56 +1,26 @@
-#!/bin/sh -- # -*- perl -*- -w
-eval 'exec perl -S $0 "$@"'
-  if 0;
-
-use strict;
-
-use Config;
-use File::Basename qw(fileparse);
-
-my($file, $path) = fileparse($0);
-$file =~ s!\.PL$!!i;
-chdir($path)         or die "Couldn't chdir to `$path': $!\n";
-
-print "Extracting $file\n";
-
-open(OUT, "> $file") or die "Couldn't create `$file': $!\n";
-print OUT "$Config{'startperl'} -w\n";
-while (<DATA>) {
-  print OUT
-}
-close(OUT)           or die "Couldn't close `$file': $!\n";
-
-chmod(0755, $file)   or die "Couldn't chmod 744 on `$file': $!\n";
-
-exec("$Config{'eunicefix'} $file") if $Config{'eunicefix'} ne ':';
-
-__END__
-######################### -*- Mode: Perl -*- #########################
+#!/usr/local/perl5.005_56.Mar06/bin/perl -w
+######################### -*- Mode: Cperl -*- #########################
 ##
-## $Basename: sman.PL $
-## $Revision: 1.6 $
+## $Basename: sman $
+## $Revision: 1.8 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Fri Aug 30 15:52:25 1996
 ##
 ## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Sun Nov 22 18:44:34 1998
-## 
+## Last Modified On : Sun May 30 17:48:53 1999
+##
 ## Copyright (c) 1996-1997, Ulrich Pfeifer
-## 
-## 
+##
+##
 ######################################################################
 
-eval 'exec perl -S $0 "$@"'
-  if 0;
-
-
 use strict;
-
 
 use Term::ReadLine;
 use Getopt::Long;
 use Fcntl;
+use Config;
 
 require WAIT::Config;
 require WAIT::Database;
@@ -83,11 +53,7 @@ my $db = WAIT::Database->open(name      => $OPT{database},
 my $tb = $db->table(name => $OPT{table})
   or die "Could not open table $OPT{table}: $@";
 
-my $layout = $tb->layout;
-
-my $did;
-my @did;
-my @stack;
+# not used: my $layout = $tb->layout; # a WAIT::Parse::Nroff object
 
 my $term = new Term::ReadLine 'Simple Query Interface';
 
@@ -100,15 +66,21 @@ if ($Config::Config{'archname'} eq 'i586-linux') {
   $format = new WAIT::Format::Term;
 }
 
-my $pager =  ($OPT{pager})?\&less : \&pager;
+my $pager =  ($OPT{pager}) ? \&pager : \&less;
 my $OUT   = $term->OUT;
 
 my $st = 1;
 print $OUT "Enter 'h' for help.\n";
 
-my (%hits, $query, $query_text);
-while (defined ($_ = &readline("$st>"))) {
+# sman is basically offering three services: find the hits and show
+# them (a query), show metadata for a hit (a view), show a hot (display)
+
+my($query, @did);
+
+while (defined ($_ = &myreadline("$st> "))) {
   chomp; $st++;
+
+  my(%hits, $query_text);
   if (/^$/) {
     next;
   } elsif (/^m (\d+)$/) {
@@ -125,12 +97,12 @@ while (defined ($_ = &readline("$st>"))) {
     next;
   } elsif (/^(\d+)$/) {
     if (defined $did[$1]) {
-      display($did[$1]);
+      display($did[$1]);                    # <----------- display (full doc)
       next;
     }
   } elsif (/^d\s*(\d+)/) {
     if (defined $did[$1]) {
-      view($did[$1]);
+      view($did[$1]);                       # <----------- view (metadata from WAIT)
       next;
     }
   } elsif (/^q$/i) {
@@ -143,36 +115,55 @@ while (defined ($_ = &readline("$st>"))) {
   } elsif (/^hh$/i) {
     extended_help();
     next;
-  } else {
+  } else {                                  # <----------- A query (Display a list)
     $query_text = $_;
     eval {$query = WAIT::Query::Wais::query($tb, $_)};
     if ($@ ne '') {
       print $OUT "$_ => $query\n\$\@='$@'\n";
     } elsif (ref($query)) {
       %hits = $query->execute();
+      # the hash %hits has as keys document numbers and as values
+      # quality figures. The doc numbers are not what we have as docid
+      # to find the item in the access class, they are WAIT's private
+      # numbers.
     } else {
       next;
     }
   }
 
   next unless %hits;
-  my $no = 1; @did = ();
+  my $no = 1; # numbering the hits for the result table that is
+              # presented to the user
+
+  @did = (); # store the internal numbers (keys of %hits). The user
+             # will use $no in sman's interface to select a hit.
+
+  # the following loop uses the values of %hits to sort the results
+  # according to the quality and cut after a number of rows. After
+  # that %hits isn't needed anymore.
   print "Query: $query_text\n";
-  for $did (sort {$hits{$b} <=> $hits{$a}} keys %hits) {
-    my %tp = $tb->fetch($did);
+  for my $did (sort {$hits{$b} <=> $hits{$a}} keys %hits) {
+
+    my %tattr = $tb->fetch($did);
+    # the hash %tattr contains several attributes of the item we are
+    # referring to, namely the attributes that we named in the "attr"
+    # argument of the create_table statement in smakewhatis
+
     printf $OUT "%2d %6.3f %s\n", $no, $hits{$did},
-                 substr($tp{headline} ||'',0,68);
+                 substr($tattr{headline} ||'',0,68);
     $did[$no] = $did;
     last if $no++ >= $OPT{max};
+
   }
+
 } continue {
   # we don't do this since ANdreas Koenig does not think of it as feature
   # $term->SetHistory(grep length($_)>4, $term->GetHistory)
 }
 
-sub readline {
+sub myreadline {
   if (@ARGV) {
-    shift @ARGV;
+    return shift @ARGV;
   } else {
     $term->readline(@_);
   }
@@ -211,15 +202,15 @@ des=(information system*)           wild-card search
 au=ilia                             author names may be misspelled
 
 You can build arbitary boolean combination of the above examples.
-Filed names may be abbreviated.
+Field names may be abbreviated.
 }
 }
 
 sub view {
   my $did = shift;
-  my %tp = $tb->fetch($did);
-  for (keys %tp) {
-    print $OUT "$_ $tp{$_}\n";
+  my %tattr = $tb->fetch($did);
+  for (keys %tattr) {
+    print $OUT "$_ $tattr{$_}\n";
   }
 }
 
@@ -227,21 +218,78 @@ sub display {
   my $did = shift;
 
   return unless defined $query and defined $did;
-  
+
   print $OUT "Wais display document $did\n";
-  my %tp = $tb->fetch($did);
-  my $tdid = $tp{docid};
-  if ($tdid !~ m(^/)) {
-    $tdid = $tb->dir . '/' . $tdid;
-  }
+  my %tattr = $tb->fetch($did);
+  my $tdid = $tattr{docid};
+# WHAT DOES HE DO HERE? ULI???
+# Re: some indexing scripts did use pathnames relative to the table directory
+# especially the cpanwait script does this. uli
+#  if ($tdid !~ m(^/)) {
+#    $tdid = $tb->dir . '/' . $tdid;
+#  }
+
+  # The main task of all that follows from here is highlighting. WAIT
+  # is designed to make it possible to show the user why a certain
+  # document was chosen by the indexer.
+
   my $buf = $tb->fetch_extern($tdid);
+  # This $buf can be an object that can have enough information to do
+  # highlighting without WAIT's help. If you prefer to implement your
+  # own highlighting, you can do so now with e.g. print
+  # $buf->highlight(query => $query)
+
+  # All you need to know to implement highlighting is how a
+  # WAIT::Query::Base object looks like (left as an exercise for the
+  # reader).
+
+  # The impatient reader may want to implement something without
+  # highlighting, in which case he does not need any info about the
+  # query object and can rightaway run e.g.
+  #   print $buf->as_string
+
+  # Thus the impatient reader does not necessarily need the following
+  # heavy wizardry. Just to give you an idea what's going on: every
+  # word in the text must be compared to every word in the query if it
+  # is worth highlighting, and which part of the word is worth
+  # highlighting. This must be done differently for every field in the
+  # table and for every index defined for that field. Try to run a
+  # query with 100 words and you'll be amazed to see it really works.
+  # Or maybe it doesn't. You should be aware that the hilighting code
+  # is to be regarded as alpha. It is certainly the least tested part
+  # of WAIT so far.
+
   if ($buf) {
     my @txt = $query->hilight($buf);
+    # In this operation the following things melt into one piece:
+    # $query: The query entered by the user (Class isa WAIT::Query::Base)
+    # $tb:    The table we queried (Class WAIT::Table)
+    # $buf:   The document to display (User defined class or string)
+    # The steps taken are:
+    # 1.) $query calls "hilight" on $tb and passes
+    #     filtered and raw search terms ($query->{Plain} and $query->{Raw}).
+    # 2.) $tb asks the layout object to tag the object which results
+    #     in an array with alternating elements of tags (anon HASHes) and
+    #     strings.
+    # 3.) $tb adds some markup on its own: {qt=>1} or some such
+
+    # The result of that process can optionally be sent through a
+    # filter, just to impress your friends with yet more heavy
+    # wizardry
     if ($OPT{filter}) {
       @txt = &filter(@txt);
     }
+
+    # And then a formatter (in our case a terminal formatter) turns
+    # all the markup into escape sequences and strings that can in
+    # turn be sent through a pager for instance
     &$pager($format->as_string(\@txt));
   }
+
+  # Hey, that's it. The user out there is deeply impressed now. You
+  # can lean back again:-) He got a document that has some words
+  # hilighted and will probably read and enjoy it. Maybe he'll send
+  # you an email.
 }
 
 sub filter {
@@ -316,7 +364,7 @@ sub pager {
   for (@lines) {
     print "$_\n"; $line++;
     if ($line % 24 == 0) {
-      my $key = readline("[return]");
+      my $key = $term->readline("[return]");
       return if $key =~ /^q/i;
     }
   }

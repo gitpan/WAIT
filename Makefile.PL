@@ -1,18 +1,17 @@
 ######################### -*- Mode: Perl -*- #########################
 ##
 ## $Basename: Makefile.PL $
-## $Revision: 1.7 $
+## $Revision: 1.10 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Tue Aug 20 12:15:44 1996
 ##
 ## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Sun Nov 22 18:44:49 1998
+## Last Modified On : Mon May 31 15:50:33 1999
 ## 
 ## Copyright (c) 1996-1997, Ulrich Pfeifer
 ## 
 ######################################################################
-
 
 use strict;
 
@@ -28,13 +27,10 @@ GetOptions(\%OPT, 'default!');
 
 &init($OPT{default});
 
-my @pl_files = map { s!\.PL$!!; $_ }    glob('script/*.PL');
-my %pl_files = map { $_ . '.PL' => $_ } @pl_files;
+my @pl_files = glob('script/*');
 
 my %seen;
 my @objects = grep { s![^.]+$!o!; !$seen{$_}++ } glob('*.[cx]*');
-
-my $VERSION = sprintf '%5.3f', map $_/10,'$ProjectVersion: 16.2 $ ' =~ /([\d.]+)/;
 
 WriteMakefile('PREREQ_PM'    => {'Term::ReadLine' => 0,
                                  'DB_File'        => 1.03,
@@ -44,10 +40,8 @@ WriteMakefile('PREREQ_PM'    => {'Term::ReadLine' => 0,
                                 },
               'NAME'	     => 'WAIT',
               'OBJECT'       => join(' ', @objects),
-              'VERSION'      => $VERSION,
-              'PL_FILES'     => \%pl_files,
+              'VERSION_FROM' => "lib/WAIT.pm",
               'EXE_FILES'    => \@pl_files,
-              'clean'        => { 'FILES' => "@pl_files" },
               'dist'         => {
                                  SUFFIX   => 'gz',
                                  COMPRESS => 'gzip -9f',
@@ -175,9 +169,9 @@ you are finished.
 
   
   ## write config
-  my $configpmdir = MM->catdir(qw/lib WAIT/);
+  my $configpmdir = MM->catdir('lib', 'WAIT');
   mkpath $configpmdir;
-  my $configpm = MM->catfile( qw/lib WAIT Config.pm/ ); 
+  my $configpm = MM->catfile('lib', 'WAIT', 'Config.pm/' ); 
   
   open FH, "> $configpm" or die "Couldn't write open $configpm: $!\n";
   print FH qq[\$WAIT::Config = \{\n];

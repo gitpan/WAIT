@@ -1,6 +1,8 @@
+#define PERL_POLLUTE
+
 /*                               -*- Mode: C -*- 
  * $Basename: WAIT.xs $
- * $Revision: 1.3 $
+ * $Revision: 1.6 $
  * Author          : Ulrich Pfeifer
  * Created On      : Thu Aug 15 18:01:00 1996
  * Last Modified By: Ulrich Pfeifer
@@ -19,6 +21,7 @@ extern "C" {
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
+#include "ppport.h"
 #ifdef __cplusplus
 }
 #endif
@@ -203,8 +206,8 @@ CODE:
 {
   char *copy;
   ST(0) = sv_mortalcopy(ST(0));
-  copy = (char *)SvPV(ST(0),na);
-  (void) isolc(copy, (int)na);
+  copy = (char *)SvPV(ST(0),PL_na);
+  (void) isolc(copy, (int)PL_na);
 }
 
 char *
@@ -214,8 +217,8 @@ CODE:
 {
   char *copy;
   ST(0) = sv_mortalcopy(ST(0));
-  copy = (char *)SvPV(ST(0),na);
-  (void) isouc(copy, (int)na);
+  copy = (char *)SvPV(ST(0),PL_na);
+  (void) isouc(copy, (int)PL_na);
 }
 
 char *
@@ -225,8 +228,8 @@ CODE:
 {
   char *copy;
   ST(0) = sv_mortalcopy(ST(0));
-  copy = (char *)SvPV(ST(0),na);
-  (void) isotr(copy, (int)na);
+  copy = (char *)SvPV(ST(0),PL_na);
+  (void) isotr(copy, (int)PL_na);
 }
 
 char *
@@ -234,7 +237,7 @@ disolc(word)
 	char *	word
 CODE:
 {
-  (void) isolc(word, (int)na);
+  (void) isolc(word, (int)PL_na);
 }
 
 char *
@@ -242,7 +245,7 @@ disouc(word)
 	char *	word
 CODE:
 {
-  (void) isouc(word, (int)na);
+  (void) isouc(word, (int)PL_na);
 }
 
 char *
@@ -250,7 +253,7 @@ disotr(word)
 	char *	word
 CODE:
 {
-  (void) isotr(word, (int)na);
+  (void) isotr(word, (int)PL_na);
 }
 
 char *
@@ -306,7 +309,7 @@ split_pos(ipair)
 PPCODE:
 {
   AV *   aipair  = (AV *) SvRV(ipair);
-  char * word    = (char *)SvPV(*av_fetch(aipair, 0, 0),na);
+  char * word    = (char *)SvPV(*av_fetch(aipair, 0, 0),PL_na);
   int    offset  = (av_len(aipair)?SvIV(*av_fetch(aipair, 1, 0)):0);
   char * begin   = word;
   SV   * pair[2];
@@ -326,7 +329,7 @@ PPCODE:
     sv_setpvn(pair[0], start, (STRLEN)(word-start));
     sv_setiv(pair[1],offset + start - begin);
     apair   = av_make(2, pair);
-    ref     = newRV((SV*) apair);
+    ref     = newRV_inc((SV*) apair);
     SvREFCNT_dec(apair);
     PUSHs(sv_2mortal(ref));
   }

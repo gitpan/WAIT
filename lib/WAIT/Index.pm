@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Index.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
@@ -18,18 +18,19 @@ use strict;
 use DB_File;
 use Fcntl;
 
-sub fail {
-  $@ .= join "\n", @_;
-  return undef;
-}
-
 sub new {
   my $type = shift;
   my %parm = @_;
   my $self = {};
 
-  $self->{file}     = $parm{file}     or return fail("No file specified");
-  $self->{attr}     = $parm{attr}     or return fail("No attributes specified");
+  unless ($self->{file} = $parm{file}) {
+    require Carp;
+    Carp::croak("No file specified");
+  }
+  unless ($self->{attr} = $parm{attr}) {
+    require Carp;
+    Carp::croak("No attributes specified");
+  }
   bless $self, ref($type) || $type;
 }
 
@@ -37,10 +38,10 @@ sub drop {
   my $self = shift;
   if ((caller)[0] eq 'WAIT::Table') { # Table knows about this
     my $file = $self->{file};
-
     ! (!-e $file or unlink $file);
-  } else {                              # notify our database
-    fail ref($self)."::drop called directly";
+  } else {                            # notify our database
+    require Carp;
+    Carp::croak(ref($self)."::drop called directly");
   }
 }
 
@@ -87,7 +88,7 @@ sub fetch {
   my $self  = shift;
   my %parm  = @_;
   my @keys  = @{$self->{attr}->[0]};
-  
+
   defined $self->{db} or $self->open;
 
   my $key   = join($;, map($parm{$_}, @keys));
@@ -102,7 +103,7 @@ sub delete {
   defined $self->{db} or $self->open;
 
   my $tuple = join($;, map($parm{$_}, @{$self->{attr}}));
-  
+
   delete $self->{db}->{$tuple};
 }
 
@@ -128,7 +129,7 @@ sub close {
 sub open_scan {
   my $self = shift;
   my $code = shift;
-  
+
   $self->{dbh} or $self->open;
   new WAIT::IndexScan $self, $code;
 }

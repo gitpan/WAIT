@@ -1,16 +1,16 @@
-#                              -*- Mode: Perl -*- 
-# Database -- 
+#                              -*- Mode: Cperl -*-
+# Database --
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug  8 09:44:13 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Nov 22 18:44:48 1998
+# Last Modified On: Sun May 30 18:34:08 1999
 # Language        : CPerl
-# Update Count    : 249
+# Update Count    : 250
 # Status          : Unknown, Use with caution!
-# 
+#
 # Copyright (c) 1996-1997, Ulrich Pfeifer
-# 
+#
 
 =head1 NAME
 
@@ -34,7 +34,8 @@ use FileHandle ();
 use File::Path qw(rmtree);
 use WAIT::Table ();
 use Fcntl;
-use Carp;
+use Carp; # will use autouse later
+# use autouse Carp => qw( croak($) );
 my ($HAVE_DATA_DUMPER, $HAVE_STORABLE);
 
 BEGIN {
@@ -48,7 +49,14 @@ BEGIN {
 }
 
 
-=head2 C<$db = create WAIT::Database name =>E<gt> I<name> C<directory =E<gt>> I<dir>C<;>
+=head2 Constructor create
+
+  $db = WAIT::Database->create(
+                               name      => <name>,
+                               directory => <dir>
+                              );
+
+Create a new database.
 
 =over 10
 
@@ -65,7 +73,9 @@ directory).
 
 If given, the database will require unique attributes over all tables.
 
-The function will return undef and set C<$@> on failure.
+The method will croak on failure.
+
+=back
 
 =cut
 
@@ -74,11 +84,23 @@ sub create {
   my %parm = @_;
   my $self = {};
   my $dir  = $parm{directory} || '.';
-  my $name = $parm{name}      or croak "No name specified";
+  my $name = $parm{name};
 
-  croak "Directory '$dir' does not exits: $!" unless -d $dir;
-  croak "Directory '$name' already exists"    if -d "$dir/$name";
-  mkdir "$dir/$name", 0775 or croak "Could not mkdir '$dir/$name': $!";
+  unless ($name) {
+    croak("No name specified");
+  }
+
+  unless (-d $dir){
+    croak("Directory '$dir' does not exits: $!");
+  }
+
+  if (-d "$dir/$name") {
+    warn "Warning: Directory '$dir/$name' already exists";
+  } else {
+    unless (mkdir "$dir/$name", 0775) {
+      croak("Could not mkdir '$dir/$name': $!");
+    }
+  }
 
   $self->{name}      = $name;
   $self->{file}      = "$dir/$name";
@@ -88,7 +110,12 @@ sub create {
 }
 
 
-=head2 C<$db = open WAIT::Database name =E<gt>> I<name> C<directory =E<gt>> I<dir>C<;>
+=head2 Constructor open
+
+  $db = WAIT::Database->open(
+                             name => "foo",
+                             directory => "bar"
+                            );
 
 Open an existing database I<foo> in directory I<bar>.
 
@@ -102,7 +129,7 @@ sub open {
   my $catalog = "$dir/$name/catalog";
   my $meta    = "$dir/$name/meta";
   my $self;
-  
+
   if ($HAVE_STORABLE and -e $catalog
       and (!-e $meta or -M $meta >= -M $catalog)) {
     $self = Storable::retrieve($catalog);
@@ -111,13 +138,13 @@ sub open {
 
     $self = do $meta;
     unless (defined $self) {
-      warn "\ado '$meta' did not work. Mysterious! Reverting to eval `cat $meta`\n";
+      warn "do '$meta' did not work. Mysterious! Reverting to eval `cat $meta`";
       sleep(4);
       $self = eval `cat $meta`;
     }
   }
 
-  return $self unless defined $self;
+  return unless defined $self;
   $self->{mode} = (exists $parm{mode})?$parm{mode}:(O_CREAT | O_RDWR);
   $self;
 }
@@ -147,7 +174,10 @@ sub dispose {
   }
   croak "No such database '$dir'" unless -e "$dir/meta";
 
-  rmtree($dir, 0, 1);
+  #warn "Running rmtree on dir[$dir]";
+  my $ret = rmtree($dir, 0, 1);
+  #warn "rmtree returned[$ret]";
+  $ret;
 }
 
 
@@ -178,14 +208,14 @@ sub close {
       $did_save = 1;
     } else {
       croak "Could not open '$file/meta' for writing: $!";
-      return unless $HAVE_STORABLE;
+      # never reached: return unless $HAVE_STORABLE;
     }
   }
 
   if ($HAVE_STORABLE) {
     if (!eval {Storable::store($self, "$file/catalog")}) {
-      fail ("Could not open '$file/catalog' for writing: $!");
-      return unless $did_save;
+      croak "Could not open '$file/catalog' for writing: $!";
+      # never reached: return unless $did_save;
     } else {
       $did_save++;
     }
@@ -195,18 +225,20 @@ sub close {
 }
 
 
-=head2 C<$db-E<gt>create_table name =E<gt>> I<tname> ... C<;>
+=head2 C<$db-E<gt>create_table(name =E<gt>> I<tname>, ... C<);>
 
-Create a new table with name I<tname>. All paraeters are passed to
-C<WAIT::Table::new> together with a filename to use. The function
-returns a table handle (C<WAIT::Table::Handle>).
+Create a new table with name I<tname>. All parameters are passed to
+C<WAIT::Table-E<gt>new> together with a filename to use. See
+L<WAIT::Table> for which attributes are required. The method returns a
+table handle (C<WAIT::Table::Handle>).
 
 =cut
 
 sub create_table {
   my $self = shift;
   my %parm = @_;
-  my $name = $parm{name} || return fail("No name specified");
+  my $name = $parm{name} or croak "create_table: No name specified";
+  my $attr = $parm{attr} or croak "create_table: No attributes specified";
   my $file = $self->{file};
 
   croak "Database readonly" unless $self->{mode} & (O_CREAT | O_RDWR);
@@ -216,9 +248,9 @@ sub create_table {
   }
 
   if ($self->{uniqueatt}) {
-    for (@{$parm{attr}}) {      # attribute names must be uniqe
+    for (@$attr) {      # attribute names must be uniqe
       if ($self->{attr}->{$_}) {
-        return fail ("Attribute '$_' is not unique")
+        croak("Attribute '$_' is not unique")
       }
     }
   }
@@ -232,15 +264,15 @@ sub create_table {
 
   if ($self->{uniqueatt}) {
     # remember table name for each attribute
-    map ($self->{attr}->{$_} = $name, @{$parm{attr}});
+    map ($self->{attr}->{$_} = $name, @$attr);
   }
   WAIT::Table::Handle->new($self, $name);
 }
 
 
-=head2 <$db-E<gt>table name =E<gt>> I<tname>C<;>
+=head2 C<$db-E<gt>table(name =E<gt>> I<tname>C<);>
 
-Open a new table with name I<tname>. The function
+Open a new table with name I<tname>. The method
 returns a table handle (C<WAIT::Table::Handle).
 
 =cut
@@ -271,7 +303,7 @@ sub table {
 }
 
 
-=head2 C<$db-E<gt>drop  name =E<gt>> I<tname>C<;>
+=head2 C<$db-E<gt>drop(name =E<gt>> I<tname>C<);>
 
 Drop the table named I<tname>. The table should be closed before
 calling B<drop>.
@@ -297,41 +329,6 @@ sub drop_table {
   }
   undef $self->{tables}->{$name}; # Call WAIT::Table::DESTROY here;
   1;
-}
-
-
-package WAIT::Table::Handle;
-
-use Carp;
-
-
-sub new {
-  my ($type, $database, $name) = @_;
-
-  bless [$database, $name], $type;
-}
-
-
-sub AUTOLOAD {
-  my $func = $WAIT::Table::Handle::AUTOLOAD; $func =~ s/.*:://;
-  my $self = $_[0];
-  my ($database, $name) = @{$self};
-  if (defined $database->{tables}->{$name}) {
-    if ($func eq 'drop') {
-      $database->drop_table(name => $name);
-      undef $_[0];
-      1;
-    } elsif ($func ne 'DESTROY') {
-      shift @_;
-      if ($func eq 'open') {
-        $database->{tables}->{$name}->$func(mode => $database->{mode}, @_);
-      } else {
-        $database->{tables}->{$name}->$func(@_);
-      }
-    }
-  } else {
-    return fail("Invalid handle\n");
-  }
 }
 
 

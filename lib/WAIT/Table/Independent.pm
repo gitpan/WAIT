@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Independent.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
@@ -21,12 +21,12 @@ sub fetch {
   my $self = shift;
   my $key   = shift;
   my $name = $self->{name};
-  
-  my %tp = $self->SUPER::fetch($key);
-  if (%tp) {
-    $tp{'_ee'} = "$name$key";
+
+  my %tattr = $self->SUPER::fetch($key);
+  if (%tattr) {
+    $tattr{'_ee'} = "$name$key";
   }
-  %tp;
+  %tattr;
 }
 
 sub insert {

@@ -1,4 +1,4 @@
-#                              -*- Mode: Perl -*- 
+#                              -*- Mode: Cperl -*- 
 # Query.pm -- 
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
@@ -8,9 +8,9 @@
 # Language        : CPerl
 # Update Count    : 55
 # Status          : Unknown, Use with caution!
-# 
+#
 # Copyright (c) 1996-1997, Ulrich Pfeifer
-# 
+#
 
 package WAIT::Query::Base;
 
@@ -18,7 +18,7 @@ sub new {
   my $type  = shift;
   my $table = shift;
   my $self  = {Table => $table};
-  
+
   bless $self, ref($type) || $type;
   if (@_) {
     $self->add(@_);
@@ -72,7 +72,7 @@ sub clone {
   my $self = shift;
   my %copy;
   my $fld;
-  
+
   for $fld (keys %{$self->{Plain}}) {
     $copy{Plain}->{$fld} = $self->{Plain}->{$fld};
   }
@@ -89,7 +89,7 @@ sub execute {
   my $tb   = $self->{Table};
   my %result;
   my $fld;
-  
+
   for $fld (keys %{$self->{Plain}}, keys %{$self->{Raw}}) {
     %r = $tb->search($fld,
                      $self->{Plain}->{$fld},

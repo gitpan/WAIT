@@ -18,11 +18,6 @@ use strict;
 use DB_File;
 use Fcntl;
 
-sub fail {
-  $@ .= join "\n", @_;
-  return undef;
-}
-
 sub new {
   my $type  = shift;
   my $index = shift;
@@ -30,8 +25,10 @@ sub new {
   my ($first, $tid) = ('', '');
 
   # find the first key
-  $index->{dbh}->seq($first, $tid, R_FIRST)
-    and return fail("Could not open scan");
+  if ($index->{dbh}->seq($first, $tid, R_FIRST)) {
+    require Carp;
+    Carp::croak("Could not open scan");
+  }
   # Not sure about this. R_FIRST sets $tid to no-of-records?
   # $index->{dbh}->seq($first, $tid, R_NEXT);
   # register to avoid unnecessary position calls
@@ -47,9 +44,12 @@ sub next {
   my ($key, $tid, $ntid);
 
   if (defined $self->{nextk}) {
-    fail("Cannot scan closed index"),return unless $dbh;
+    unless ($dbh){
+      require Carp;
+      Carp::croak("Cannot scan closed index");
+    }
     $key = $self->{nextk};
-    
+
     if ($self->{Index}->{scans} > 1) {
       # Another scan is open. Reset the cursor
       $dbh->seq($key, $tid, R_CURSOR);
@@ -60,7 +60,7 @@ sub next {
       # current tuple is last one
       delete $self->{nextk};
     }
-    
+
     my @tuple = split /$;/, $key;
     my %tuple = (_id => $tid);
     for (@{$self->{Index}->{attr}}) {
