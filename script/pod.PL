@@ -1,0 +1,170 @@
+#!/bin/sh -- # -*- perl -*- -w
+eval 'exec perl -S $0 "$@"'
+  if 0;
+
+use strict;
+
+use Config;
+use File::Basename qw(fileparse);
+
+my($file, $path) = fileparse($0);
+$file =~ s!\.PL$!!i;
+chdir($path)         or die "Couldn't chdir to `$path': $!\n";
+
+print "Extracting $file\n";
+
+open(OUT, "> $file") or die "Couldn't create `$file': $!\n";
+print OUT "$Config{'startperl'} -w\n";
+while (<DATA>) {
+  print OUT
+}
+close(OUT)           or die "Couldn't close `$file': $!\n";
+
+chmod(0755, $file)   or die "Couldn't chmod 744 on `$file': $!\n";
+
+exec("$Config{'eunicefix'} $file") if $Config{'eunicefix'} ne ':';
+
+__END__
+######################### -*- Mode: Perl -*- #########################
+##
+## $Basename: pod.PL $
+## $Revision: 1.6 $
+##
+## Author           : Ulrich Pfeifer
+## Created On       : Mon Dec 16 09:46:40 1996
+##
+## Last Modified By : Ulrich Pfeifer
+## Last Modified On : Sun Nov 22 18:44:35 1998
+## 
+## Copyright (c) 1996-1997, Ulrich Pfeifer
+## 
+## 
+######################################################################
+
+eval 'exec perl -S $0 "$@"'
+  if 0;
+
+
+use strict;
+
+
+package Foo;
+
+use WAIT::Parse::Pod;
+use strict;
+use vars qw(@ISA);
+
+@ISA = qw (WAIT::Parse::Pod);
+
+# ANSI color stuff snarfed from Term::ANSI_Color by Zenin (zenin@best.com)
+
+sub GREEN       () { return "\e[32m"}
+sub BLUE        () { return "\e[34m"}
+sub RED         () { return "\e[31m"}
+sub BOLD        () { return "\e[1m" }
+sub REVERSE     () { return "\e[7m" }
+sub UNDERLINE   () { return "\e[4m" }
+sub BLACK       () { return "\e[30m"}
+sub YELLOW      () { return "\e[33m"}
+sub MAGENTA     () { return "\e[35m"}
+sub CYAN        () { return "\e[36m"}
+sub WHITE       () { return "\e[37m"}
+
+sub onBLACK     () { return "\e[40m"}
+sub onRED       () { return "\e[41m"}
+sub onGREEN     () { return "\e[42m"}
+sub onYELLLOW   () { return "\e[43m"}
+sub onBLUE      () { return "\e[44m"}
+sub onMAGENTA   () { return "\e[45m"}
+sub onCYAN      () { return "\e[46m"}
+sub onWHITE     () { return "\e[47m"}
+sub BLINK       () { return "\e[5m" }
+sub CLEAR       () { return "\e[0m" }
+
+sub output {
+  my $self = shift;
+  my $out = $self->{OUTPUT};
+  
+  while (@_) {
+    my $tags = shift;
+    my $text = shift;
+    if ($tags->{_b}) {
+      $out->print(BOLD);
+    } elsif ($tags->{_i}) {
+      $out->print(UNDERLINE);
+    } elsif ($tags->{_c}) {
+      $out->print(BLUE);
+    }
+    $out->print($text, CLEAR);
+  }
+}
+
+package main;
+use IO::File;
+use Config;
+
+sub try {                 
+  my $pod = shift;
+
+  for ('', qw(.pod .pm)) {
+    return "$pod$_" if -f "$pod$_";
+  }
+}
+
+sub locate {
+  my $pod = shift;
+  my $result;
+  
+  return $result if $result = try($pod);
+  $pod =~ s{::}{/}g;
+  for ("$Config{privlibexp}/pod", @INC) {
+    return $result if $result = try("$_/$pod");
+  }
+}
+
+my ($pod) = @ARGV;
+
+my $file = locate($pod);
+die "Could not locate '$pod'" unless $file;
+
+my $in = new IO::File "<$file";
+die "Could not open '$file': $!" unless $in;
+my $out = new IO::File "|less -r";
+die "Could not run 'less': $!" unless $out;
+undef $/;
+
+my $text = <$in>;
+my $parser = new Foo;
+$parser->{OUTPUT} = $out;
+
+$parser->tag($text)
+
+
+__END__
+## ###################################################################
+## pod
+## ###################################################################
+
+=head1 NAME
+
+bibdb - generate an WAIT index for bibdb records
+
+=head1 SYNOPSIS
+
+B<pod> F<file>
+
+=head1 DESCRIPTION
+
+Pretty prints POD documentation on terminals. Finds pod in modules
+as well as F<.pod>files.
+
+=head1 EXAMPLES
+
+  pod IO::File
+  pod IO/File
+
+yield the same result.
+
+=head1 AUTHOR
+
+Ulrich Pfeifer E<lt>F<pfeifer@ls6.informatik.uni-dortumund.de>E<gt>
