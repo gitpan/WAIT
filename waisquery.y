@@ -95,7 +95,7 @@ w_unit          : a_unit
 %%
 use strict;
 sub yyerror {
-  print "yyeror: @_ $.\n";
+  warn "yyerror: @_ $.\n";
 }
 
 for (qw(and or not phonix soundex)) {
@@ -119,7 +119,7 @@ sub yylex1 {
   } else {
     $verbose = $VERBOSE{$token};
   }
-  print "yylex($token=$verbose$val)\n";
+  warn "yylex($token=$verbose$val)\n";
   return $token;
 }
 

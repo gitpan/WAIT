@@ -145,11 +145,11 @@ __END__
 
 =head1 NAME
 
-smakewhatis - generate a manual database for sman
+index_html - generate a manual database for sman
 
 =head1 SYNOPSIS
 
-B<smakewhatis>
+B<index_html>
 [B<-database> I<database name>]
 [B<-dir> I<database directory>]
 [B<-table> I<name>]
@@ -158,7 +158,7 @@ B<smakewhatis>
 
 =head1 DESCRIPTION
 
-B<Smakewhatis> generates/updates databases for B<sman>(1). If
+B<Index_html> generates/updates databases for B<sman>(1). If
 I<mandir>s are specified, these are used. Otherwise the confiigured
 default directories are indexed.
 

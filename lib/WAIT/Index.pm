@@ -102,7 +102,7 @@ sub delete {
 
   defined $self->{db} or $self->open;
 
-  my $tuple = join($;, map($parm{$_}, @{$self->{attr}}));
+  my $tuple = join($;, map($parm{$_}||"", @{$self->{attr}}));
 
   delete $self->{db}->{$tuple};
 }

@@ -2,13 +2,13 @@
 ######################### -*- Mode: Cperl -*- #########################
 ##
 ## $Basename: smakewhatis $
-## $Revision: 1.8 $
+## $Revision: 1.11 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Mon Sep  2 12:57:12 1996
 ##
 ## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Sun Nov 22 18:44:34 1998
+## Last Modified On : Tue May  9 08:52:03 2000
 ##
 ## Copyright (c) 1996-1997, Ulrich Pfeifer
 ##
@@ -178,6 +178,7 @@ if (@ARGV) {
   @DIRS  = @{$WAIT::Config->{manpath}};
 }
 
+$tb->set(top=>1);
 my $mandir;
 for $mandir (grep -d $_, @DIRS) {
   opendir(DIR, $mandir) or warn "Could not open dir '$mandir': $!";
@@ -197,6 +198,10 @@ for $mandir (grep -d $_, @DIRS) {
     }
   }
 }
+my $now = time;
+warn "Starting reorg\n";
+$tb->set(top=>1);
+warn sprintf "Finished reorg %d seconds\n", time - $now;
 
 # Do not forget to close the database after the extreme job you just finished.
 

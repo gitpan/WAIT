@@ -1,18 +1,14 @@
-#!/usr/bin/perl
 #                              -*- Mode: Perl -*- 
 # $Basename: Wais.pm $
-# $Revision: 1.4 $
+# $Revision: 1.5 $
 # Author          : Ulrich Pfeifer
 # Created On      : Mon Sep 16 11:08:04 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Nov  5 17:34:02 1997
+# Last Modified On: Sat Apr 15 15:51:49 2000
 # Language        : CPerl
-# Update Count    : 156
-# Status          : Unknown, Use with caution!
-#
-# (C) Copyright 1997, Ulrich Pfeifer, all rights reserved.
-#
-#
+# 
+# (C) Copyright 1997-2000, Ulrich Pfeifer
+# 
 
 package WAIT::Wais;
 

@@ -1,19 +1,15 @@
-#!/usr/local/perl5.005_56.Mar06/bin/perl -w
-######################### -*- Mode: Cperl -*- #########################
-##
-## $Basename: sman $
-## $Revision: 1.8 $
-##
-## Author           : Ulrich Pfeifer
-## Created On       : Fri Aug 30 15:52:25 1996
-##
-## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Sun May 30 17:48:53 1999
-##
-## Copyright (c) 1996-1997, Ulrich Pfeifer
-##
-##
-######################################################################
+#!perl -w
+#                              -*- Mode: Perl -*- 
+# $Basename: sman $
+# $Revision: 1.14 $
+# Author          : Ulrich Pfeifer
+# Created On      : Fri Aug 30 15:52:25 1996
+# Last Modified By: Ulrich Pfeifer
+# Last Modified On: Mon May  8 11:03:46 2000
+# Language        : CPerl
+# 
+# (C) Copyright 1996-2000, Ulrich Pfeifer
+# 
 
 use strict;
 
@@ -121,7 +117,7 @@ while (defined ($_ = &myreadline("$st> "))) {
     if ($@ ne '') {
       print $OUT "$_ => $query\n\$\@='$@'\n";
     } elsif (ref($query)) {
-      %hits = $query->execute();
+      %hits = $query->execute(top => $OPT{max}, picky => 1);
       # the hash %hits has as keys document numbers and as values
       # quality figures. The doc numbers are not what we have as docid
       # to find the item in the access class, they are WAIT's private
@@ -157,9 +153,13 @@ while (defined ($_ = &myreadline("$st> "))) {
   }
 
 } continue {
-  # we don't do this since ANdreas Koenig does not think of it as feature
+  # we don't do this since Andreas Koenig does not think of it as feature
   # $term->SetHistory(grep length($_)>4, $term->GetHistory)
 }
+warn "Thank you for using sman\n";
+
+$tb->close;
+$db->close;
 
 sub myreadline {
   if (@ARGV) {

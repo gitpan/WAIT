@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Fri Sep 13 13:05:52 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Nov 22 18:44:40 1998
+# Last Modified On: Fri Apr 14 16:27:01 2000
 # Language        : CPerl
-# Update Count    : 55
+# Update Count    : 57
 # Status          : Unknown, Use with caution!
 #
 # Copyright (c) 1996-1997, Ulrich Pfeifer
@@ -91,9 +91,12 @@ sub execute {
   my $fld;
 
   for $fld (keys %{$self->{Plain}}, keys %{$self->{Raw}}) {
-    %r = $tb->search($fld,
-                     $self->{Plain}->{$fld},
-                     $self->{Raw}->{$fld},
+    %r = $tb->search(
+                     { attr => $fld,
+                       cont => $self->{Plain}->{$fld},
+                       raw  => $self->{Raw}->{$fld},
+                       @_
+                     }
                     );
     my ($key, $val);
     while (($key, $val) = each %r) {

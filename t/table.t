@@ -4,15 +4,15 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug  8 12:14:23 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Nov 22 18:44:29 1998
+# Last Modified On: Mon May  8 16:06:01 2000
 # Language        : CPerl
-# Update Count    : 75
+# Update Count    : 78
 # Status          : Unknown, Use with caution!
 # 
 # Copyright (c) 1996-1997, Ulrich Pfeifer
 # 
 
-BEGIN { $| = 1; print "1..17\n"; }
+BEGIN { $| = 1; print "1..18\n"; }
 END {print "not ok 1\n" unless $loaded;
      system 'rm -rf test' if -d 'test';}
 #use diagnostics;
@@ -54,6 +54,9 @@ $tb = table $db name => 'sample';
 print ((defined $tb)? "ok $test\n" : "not ok $test\n"); $test++;
 
 $status = $tb->open;
+print (($status)? "ok $test\n" : "not ok $test\n"); $test++;
+
+$status = $tb->set(top=>1);
 print (($status)? "ok $test\n" : "not ok $test\n"); $test++;
 
 $status = $tb->drop;

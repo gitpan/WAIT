@@ -41,7 +41,7 @@ metaphone.c
 metaphone.h
 script/bibdb
 script/cpanwait
-script/index-html
+script/index_html
 script/pmakewhatis
 script/pod
 script/smakewhatis
@@ -64,3 +64,5 @@ t/test.ste
 t/wais.t
 waisquery.y
 ppport.h
+script/index_yow
+script/index_fortune

@@ -2,26 +2,20 @@
 ######################### -*- Mode: Cperl -*- #########################
 ##
 ## $Basename: pod $
-## $Revision: 1.7 $
+## $Revision: 1.8 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Mon Dec 16 09:46:40 1996
 ##
 ## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Sun Nov 22 18:44:35 1998
+## Last Modified On : Fri Apr  7 13:43:09 2000
 ## 
 ## Copyright (c) 1996-1997, Ulrich Pfeifer
 ## 
 ## 
 ######################################################################
 
-eval 'exec perl -S $0 "$@"'
-  if 0;
-
-
 use strict;
-
-
 package Foo;
 
 use WAIT::Parse::Pod;
@@ -121,7 +115,7 @@ __END__
 
 =head1 NAME
 
-bibdb - generate an WAIT index for bibdb records
+pod - display POD documentation using colors
 
 =head1 SYNOPSIS
 

@@ -1,13 +1,13 @@
 #!/usr/bin/perl
 #                              -*- Mode: Cperl -*-
 # $Basename: WAIT.pm $
-# $Revision: 1.6 $
+# $Revision: 1.7 $
 # Author          : Ulrich Pfeifer
 # Created On      : Wed Nov  5 16:59:32 1997
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Wed Nov 12 18:26:44 1997
+# Last Modified On: Mon May 31 22:34:35 1999
 # Language        : CPerl
-# Update Count    : 4
+# Update Count    : 5
 # Status          : Unknown, Use with caution!
 #
 # (C) Copyright 1997, Ulrich Pfeifer, all rights reserved.
@@ -19,7 +19,9 @@ require DynaLoader;
 use vars qw($VERSION @ISA);
 @ISA = qw(DynaLoader);
 
-$VERSION = sprintf '%.4f', map $_/10,'$ProjectVersion: 17.1 $ ' =~ /([\d.]+)/;
+# $Format: "$\VERSION = sprintf '%5.3f', ($ProjectMajorVersion$ * 100 + ($ProjectMinorVersion$-1))/1000;"$
+$VERSION = sprintf '%5.3f', (18 * 100 + (1-1))/1000;
+
 
 bootstrap WAIT $VERSION;
 

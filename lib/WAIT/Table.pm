@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug  8 13:05:10 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun May 30 20:42:30 1999
+# Last Modified On: Mon May  8 20:20:58 2000
 # Language        : CPerl
-# Update Count    : 56
+# Update Count    : 131
 # Status          : Unknown, Use with caution!
 #
 # Copyright (c) 1996-1997, Ulrich Pfeifer
@@ -34,6 +34,7 @@ use Carp;
 # use autouse Carp => qw( croak($) );
 use DB_File;
 use Fcntl;
+use LockFile::Simple ();
 
 my $USE_RECNO = 0;
 
@@ -163,6 +164,12 @@ sub new {
   } elsif (!mkdir($self->{file}, 0775)) {
     croak "Could not 'mkdir $self->{file}': $!\n";
   }
+
+  my $lockmgr = LockFile::Simple->make(-autoclean => 1);
+  # aquire a write lock
+  $self->{write_lock} = $lockmgr->lock($self->{file} . '/write')
+    or die "Can't lock '$self->{file}/write'";
+
   $self->{djk}      = $parm{djk}      if defined $parm{djk};
   $self->{layout}   = $parm{layout} || new WAIT::Parse::Base;
   $self->{access}   = $parm{access} if defined $parm{access};
@@ -188,6 +195,7 @@ sub new {
     }
     $self->create_inverted_index(attribute => $att, pipeline  => \@spec, @opt);
   }
+
   $self;
   # end of backwarn compatibility stuff
 }
@@ -323,6 +331,7 @@ sub drop {
       $_->drop;
     }
     unlink "$file/records";
+    # $self->unlock;
     ! (!-e $file or rmdir $file);
   } else {
     croak ref($self)."::drop called directly";
@@ -373,6 +382,57 @@ sub open {
                          $self->{mode}, 0664, $DB_BTREE);
     }
   }
+
+  # Locking
+  #
+  # We allow multiple readers to coexists.  But write access excludes
+  # all read access vice versa.  In practice read access on tables
+  # open for writing will mostly work ;-)
+
+  my $lockmgr = LockFile::Simple->make(-autoclean => 1);
+
+  # aquire a write lock. We might hold one acquired in create() already
+  $self->{write_lock} ||= $lockmgr->lock($self->{file} . '/write')
+    or die "Can't lock '$self->{file}/write'";
+
+  my $lockdir = $self->{file} . '/read';
+  unless (-d $lockdir) {
+    mkdir $lockdir, 0755 or die "Could not mkdir $lockdir: $!";
+  }
+
+  if ($self->{mode} & O_RDWR) {
+    # this is a hack.  We do not check for reopening ...
+    return $self if $self->{write_lock};
+    
+    # If we actually want to write we must check if there are any readers
+    opendir DIR, $lockdir or
+      die "Could not opendir '$lockdir': $!";
+    for my $lockfile (grep { -f "$lockdir/$_" } readdir DIR) {
+      # check if the locks are still valid.
+      # Since we are protected by a write lock, we could use a pline file.
+      # But we want to use the stale testing from LockFile::Simple.
+      if (my $lck = $lockmgr->trylock("$lockdir/$lockfile")) {
+        warn "Removing stale lockfile '$lockdir/$lockfile'";
+        $lck->release;
+      } else {
+        $self->{write_lock}->release;
+        die "Cannot write table '$file' while it's in use";
+      }
+    }
+  } else {
+    # this is a hack.  We do not check for reopening ...
+    return $self if $self->{read_lock};
+    
+    # We are a reader. So we release the write lock
+    my $id = time;
+    while (-f "$lockdir/$id.lock") { # here assume ".lock" format!
+      $id++;
+    }
+    $self->{read_lock} = $lockmgr->lock("$lockdir/$id");
+    $self->{write_lock}->release;
+    delete $self->{write_lock};
+  }
+
   $self;
 }
 
@@ -432,11 +492,22 @@ sub insert {
   my $tuple = join($;, map($parm{$_} || '', @{$self->{attr}}));
   my $key;
   my @deleted = keys %{$self->{deleted}};
+  my $gotkey = 0;
 
   if (@deleted) {
     $key = pop @deleted;
     delete $self->{deleted}->{$key};
+    # Sanity check
+    if ($key && $key>0) {
+      $gotkey=1;
   } else {
+      warn(sprintf("WAIT database inconsistency during insert ".
+		   "key[%s]: Please rebuild index\n",
+		   $key
+		  ));
+    }
+  }
+  unless ($gotkey) {
     $key = $self->{nextk}++;
   }
   if ($USE_RECNO) {
@@ -450,6 +521,7 @@ sub insert {
       if ($key == $self->{nextk}-1) {
         $self->{nextk}--;
       } else {
+	# warn "setting key[$key] deleted during insert";
         $self->{deleted}->{$key}=1;
       }
       my $idx;
@@ -504,6 +576,11 @@ sub delete_by_key {
   my $self  = shift;
   my $key   = shift;
 
+  unless ($key) {
+    Carp::cluck "Warning: delete_by_key called without key. Looks like a bug in WAIT?";
+    return;
+  }
+
   return $self->{deleted}->{$key} if defined $self->{deleted}->{$key};
   my %tuple = $self->fetch($key);
   for (values %{$self->{indexes}}) {
@@ -520,19 +597,21 @@ sub delete_by_key {
       }
     }
   }
+  # warn "setting key[$key] deleted during delete_by_key";
   ++$self->{deleted}->{$key};
 }
 
 sub delete {
   my $self  = shift;
   my $tkey = $self->have(@_);
-
+  # warn "tkey[$tkey]\@_[@_]";
   defined $tkey && $self->delete_by_key($tkey, @_);
 }
 
 sub unpack {
   my $self = shift;
   my $tuple = shift;
+  return unless defined $tuple;
 
   my $att;
   my @result;
@@ -544,6 +623,24 @@ sub unpack {
   @result;
 }
 
+sub set {
+  my ($self, $iattr, $value) = @_;
+  
+  return unless $self->{write_lock};
+  for my $att (keys %{$self->{inverted}}) {
+    if ($] > 5.003) {         # avoid bug in perl up to 5.003_05
+      my $idx;
+      for $idx (@{$self->{inverted}->{$att}}) {
+        $idx->set($iattr, $value);
+      }
+    } else {
+      map $_->set($iattr, $value), @{$self->{inverted}->{$att}};
+    }
+  }
+
+  1;
+}
+
 sub close {
   my $self = shift;
 
@@ -551,6 +648,7 @@ sub close {
     eval {$self->{'access'}->close}; # dont bother if not opened
   }
   for (values %{$self->{indexes}}) {
+    require WAIT::Index;
     $_->close();
   }
   if (defined $self->{inverted}) {
@@ -577,14 +675,34 @@ sub close {
     delete $self->{db};
   }
 
+  $self->unlock;
+  
   1;
+}
+
+sub unlock {
+  my $self = shift;
+
+  # Either we have a read or a write lock (or we close the table already)
+  # unless ($self->{read_lock} || $self->{write_lock}) {
+  #   warn "WAIT::Table::unlock: Table aparently hold's no lock"
+  # }
+  if ($self->{write_lock}) {
+    $self->{write_lock}->release();
+    delete $self->{write_lock};
+  }
+  if ($self->{read_lock}) {
+    $self->{read_lock}->release();
+    delete $self->{read_lock};
+  }
+
 }
 
 sub DESTROY {
   my $self = shift;
 
   warn "Table handle destroyed without closing it first"
-    if $self->{db} and $self->{mode}&O_RDWR;
+    if $self->{write_lock} || $self->{read_lock};
 }
 
 sub open_scan {
@@ -642,10 +760,27 @@ sub intervall {
 }
 
 sub search {
-  my $self = shift;
-  my $attr = shift;
-  my $cont = shift;
-  my $raw  = shift;
+  my $self  = shift;
+  my ($query, $attr, $cont, $raw);
+  if (ref $_[0]) {
+    $query = shift;
+  
+    $attr = $query->{attr};
+    $cont = $query->{cont};
+    $raw  = $query->{raw};
+  } else {
+    require Carp;
+    Carp::cluck("Using three argument search interface is deprecated, use hashref interface instead");
+    $attr = shift;
+    $cont = shift;
+    $raw  = shift;
+    $query = {
+              attr => $attr,
+              cont => $cont,
+              raw  => $raw,
+             };
+  }
+
   my %result;
 
   defined $self->{db} or $self->open; # require layout
@@ -655,7 +790,7 @@ sub search {
       my $name = $_->name;
       if (exists $raw->{$name} and @{$raw->{$name}}) {
         my $scale = 1/scalar(@{$raw->{$name}});
-        my %r = $_->search_raw(@{$raw->{$name}});
+        my %r = $_->search_raw($query, @{$raw->{$name}});
         my ($key, $val);
         while (($key, $val) = each %r) {
           if (exists $result{$key}) {
@@ -669,7 +804,7 @@ sub search {
   }
   if (defined $cont and $cont ne '') {
     for (@{$self->{inverted}->{$attr}}) {
-      my %r = $_->search($cont);
+      my %r = $_->search($query, $cont);
       my ($key, $val);
       while (($key, $val) = each %r) {
         if (exists $result{$key}) {

@@ -1,6 +1,6 @@
 #                              -*- Mode: Cperl -*- 
 # $Basename: Filter.pm $
-# $Revision: 1.8 $
+# $Revision: 1.9 $
 # ITIID           : $ITI$ $Header $__Header$
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug 15 18:09:51 1996
@@ -35,7 +35,7 @@ require Exporter;
                );
 # (most implemented in WAIT.xs)
 
-$VERSION = substr q$Revision: 1.8 $, 10;
+$VERSION = substr q$Revision: 1.9 $, 10;
 
 sub split {
   map split(' ', $_), @_;
@@ -91,6 +91,7 @@ sub AUTOLOAD {
 while (<DATA>) {
   chomp;
   last if /__END__/;
+  next if /^\s*#/; # there's a comment
   $STOP{$_}++;
 }
 

@@ -1,13 +1,13 @@
 ######################### -*- Mode: Perl -*- #########################
 ##
 ## $Basename: Makefile.PL $
-## $Revision: 1.10 $
+## $Revision: 1.13 $
 ##
 ## Author           : Ulrich Pfeifer
 ## Created On       : Tue Aug 20 12:15:44 1996
 ##
 ## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Mon May 31 15:50:33 1999
+## Last Modified On : Sun Apr  9 14:08:50 2000
 ## 
 ## Copyright (c) 1996-1997, Ulrich Pfeifer
 ## 
@@ -32,17 +32,21 @@ my @pl_files = glob('script/*');
 my %seen;
 my @objects = grep { s![^.]+$!o!; !$seen{$_}++ } glob('*.[cx]*');
 
-WriteMakefile('PREREQ_PM'    => {'Term::ReadLine' => 0,
-                                 'DB_File'        => 1.03,
-                                 'Data::Dumper'   => 2.02,
-                                 'Pod::Text'      => 1.02,
-                                 'HTML::Entities' => 0,
+WriteMakefile(
+              'PREREQ_PM'    => {'Term::ReadLine'   => 0,
+                                 'DB_File'          => 1.03,
+                                 'Data::Dumper'     => 2.02,
+                                 'Pod::Text'        => 1.02,
+                                 'HTML::Entities'   => 0,
+                                 'LockFile::Simple' => 0,
                                 },
               'NAME'	     => 'WAIT',
               'OBJECT'       => join(' ', @objects),
-              'VERSION_FROM' => "lib/WAIT.pm",
+# $Format: "   'VERSION'    => sprintf('%5.3f', ($ProjectMajorVersion$ * 100 + ( $ProjectMinorVersion$-1))/1000),"$ 
+   'VERSION'    => sprintf('%5.3f', (18 * 100 + ( 1-1))/1000),
               'EXE_FILES'    => \@pl_files,
               'dist'         => {
+				 PREOP => 'cp README.header README && pod2text lib/WAIT.pm >> README',
                                  SUFFIX   => 'gz',
                                  COMPRESS => 'gzip -9f',
                                 },
@@ -59,8 +63,7 @@ sub MY::postamble
 lib/WAIT/Query/Wais.pm: waisquery.y
 	byacc -P -l waisquery.y;
 	sed -n '2,$$ p' y.tab.pl | ]. "$Config{cpp} $Config{cppminus}" .
-          q[ | sed -e '/^# [0-9]/ d' > $@;
-	rm -f y.tab.pl
+          q[ | sed -e '/^# [0-9]/ d' > $@ && rm -f y.tab.pl
 
 TAGS: MANIFEST
 	etags `].$^X.q[ -ane 'print "$$F[0]\n"' MANIFEST`

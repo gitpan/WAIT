@@ -1,18 +1,14 @@
-######################### -*- Mode: Perl -*- #########################
-##
-## $Basename: bibdb $
-## $Revision: 1.7 $
-##
-## Author           : Ulrich Pfeifer
-## Created On       : Mon Sep  2 12:57:12 1996
-##
-## Last Modified By : Ulrich Pfeifer
-## Last Modified On : Fri Apr  7 13:45:36 2000
-## 
-## Copyright (c) 1996-1997, Ulrich Pfeifer
-## 
-## 
-######################################################################
+#                              -*- Mode: Perl -*- 
+# $Basename: index_fortune $
+# $Revision: 1.3 $
+# Author          : Ulrich Pfeifer
+# Created On      : Fri Apr  7 13:45:50 2000
+# Last Modified By: Ulrich Pfeifer
+# Last Modified On: Mon May  8 21:02:12 2000
+# Language        : CPerl
+# 
+# (C) Copyright 2000, UUNET Deutschland GmbH, Germany
+# 
 
 use strict;
 use File::Path;
@@ -22,7 +18,7 @@ use Cwd;
 
 require WAIT::Config;
 require WAIT::Database;
-require WAIT::Parse::Bibdb;
+require WAIT::Parse::Base;
 require WAIT::Document::Split;
 require WAIT::InvertedIndex;
 
@@ -32,7 +28,7 @@ $DB_BTREE->{'cachesize'} = 200_000 ;
 my %OPT = (clean    => 0,
            database => 'DB',
            dir      => $WAIT::Config->{WAIT_home} || '/tmp',
-           table    => 'bibdb',
+           table    => 'fortune',
           );
 
 GetOptions(\%OPT,
@@ -58,48 +54,36 @@ unless (-d "$OPT{dir}/$OPT{database}") {
   $db = WAIT::Database->create(name       => $OPT{database},
                               'directory' => $OPT{dir})
     or die "Could not open database $OPT{database}: $@\n";
-}
-else {
+} else {
   $db = WAIT::Database->open(name        => $OPT{database},
                              'directory' => $OPT{dir})
     or die "Could not open table $OPT{table}: $@\n";
 }
 
-my $layout = new WAIT::Parse::Bibdb;
+my $layout = new WAIT::Parse::Base;
 
-my $stem  = ['detex', 'isotr', 'isolc', 'split2', 'stop', 'Stem'];
+my $stem  = ['isotr', 'isolc', 'split2', 'stop', 'Stem'];
 my $text  = [{
-              'prefix'    => ['detex', 'isotr', 'isolc'],
-              'intervall' => ['detex', 'isotr', 'isolc'],
+              'prefix'    => ['isotr', 'isolc'],
+              'intervall' => ['isotr', 'isolc'],
              },
-             'detex', 'isotr', 'isolc', 'split2', 'stop'];
-my $sound = ['detex', 'isotr', 'isolc', 'split2', 'Soundex'],;
+             'isotr', 'isolc', 'split2', 'stop'];
+my $sound = ['isotr', 'isolc', 'split2', 'Soundex'],;
 
 my $cwd = cwd;
-my($file) = grep -e $_, @ARGV, "$cwd/t/test.ste", '/usr/local/ls6/tex/bib/bibdb.ste';
 
 my %D;
-my $access = tie %D, 'WAIT::Document::Split', 'sep', '\f', $file
-  or die "Couldn't tie to $file: $!\n";
+my $access = tie %D, 'WAIT::Document::Split', 'sep', '%\n',
+  grep { -T $_ } @ARGV,
+  or die "Couldn't tie to file: $!\n";
 
 my $tb = $db->create_table(name     => $OPT{table},
-                           attr     => ['docid', 'headline'],
+                           attr     => ['docid', 'headline', 'text'],
                            layout   => $layout,
                            access   => $access,
                            invindex =>
                            [
-                            'ti' => $stem, 'ti' => $text,
-                            'jt' => $stem, 'jt' => $text,
-                            'bt' => $stem, 'bt' => $text,
-                            'sd' => $stem, 'sd' => $text,
-                            'ft' => $stem, 'ft' => $text,
-                            'ab' => $stem,
-                            'au' => $text, 'au' => $sound,
-                            'pn' => $text, 'pn' => $sound,
-                            'cc' => [{'prefix' => ['cctr',  'isolc']},
-                                     'cctr',  'isolc', 'split3'],
-                            'ed' => [{'intervall' => 1}, 'split6'],
-                            'py' => [{'intervall' => 1}, 'split4'],
+                            'text' => $stem, 'text' => $text,
                            ]
                           );
 die "Couldn't create table $OPT{table}: $@\n" unless $tb;
@@ -107,7 +91,8 @@ die "Couldn't create table $OPT{table}: $@\n" unless $tb;
 my ($did, $value);
 while (($did, $value) = each %D) {
   my $record = $layout->split($value);
-  my $headline = sprintf("%-20s %s", ($record->{ck}||''), $record->{ti});
+  my $headline = $record->{text};
+  $headline =~ s/\s+/ /sg;
   printf "%s\n", substr($headline,0,80);
   $tb->insert('docid'  => $did,
               headline => $headline,
@@ -126,15 +111,15 @@ __END__
 
 =head1 NAME
 
-bibdb - generate an WAIT index for bibdb records
+index_fortune - generate an WAIT index for fortunes
 
 =head1 SYNOPSIS
 
-B<bibdb>
+B<index_fortune>
 [B<-clean>] [B<-noclean>]
 [B<-database> I<dbname>]
 [B<-dir> I<directory>]
-[B<-table> I<table name>]
+[B<-table> I<table name>] F</usr/share/games/fortunes/*.dat>
 
 =head1 DESCRIPTION
 
@@ -164,4 +149,4 @@ Specify an alternate table name. Default is C<bibdb>.
 
 =head1 AUTHOR
 
-Ulrich Pfeifer E<lt>F<pfeifer@ls6.informatik.uni-dortmund.de>E<gt>
+Ulrich Pfeifer E<lt>F<pfeifer@wait>E<gt>

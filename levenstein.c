@@ -23,7 +23,9 @@ extern          "C" {
 
 #endif
 #define  maxlen  51 
+#ifndef strchr
 char          *strchr();
+# endif
 
 int 
 formatierung(char ziel[], char wort[], int n, char modus)

@@ -1,16 +1,14 @@
-#                              -*- Mode: Cperl -*-
-# Database --
-# ITIID           : $ITI$ $Header $__Header$
+#                              -*- Mode: Perl -*- 
+# $Basename: Database.pm $
+# $Revision: 1.14 $
 # Author          : Ulrich Pfeifer
 # Created On      : Thu Aug  8 09:44:13 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun May 30 18:34:08 1999
+# Last Modified On: Sat Apr 15 16:15:29 2000
 # Language        : CPerl
-# Update Count    : 250
-# Status          : Unknown, Use with caution!
-#
-# Copyright (c) 1996-1997, Ulrich Pfeifer
-#
+# 
+# (C) Copyright 1996-2000, Ulrich Pfeifer
+# 
 
 =head1 NAME
 
@@ -35,6 +33,8 @@ use File::Path qw(rmtree);
 use WAIT::Table ();
 use Fcntl;
 use Carp; # will use autouse later
+use LockFile::Simple ();
+
 # use autouse Carp => qw( croak($) );
 my ($HAVE_DATA_DUMPER, $HAVE_STORABLE);
 
@@ -106,6 +106,10 @@ sub create {
   $self->{file}      = "$dir/$name";
   $self->{uniqueatt} = $parm{uniqueatt};
   $self->{mode}      = O_CREAT;
+  my $lockmgr = LockFile::Simple->make(-autoclean => 1);
+  # aquire a write lock
+  $self->{write_lock} = $lockmgr->lock("$dir/$name/write")
+    or die "Can't lock '$dir/$name/write'";
   bless $self => ref($type) || $type;
 }
 
@@ -146,6 +150,16 @@ sub open {
 
   return unless defined $self;
   $self->{mode} = (exists $parm{mode})?$parm{mode}:(O_CREAT | O_RDWR);
+
+  if ($self->{mode} & O_RDWR) {
+    # Locking: We do not care about read access since write is atomic.
+    my $lockmgr = LockFile::Simple->make(-autoclean => 1);
+    
+    # aquire a write lock
+    $self->{write_lock} = $lockmgr->lock("$dir/$name/write")
+      or die "Can't lock '$dir/$name/write'";
+  }
+
   $self;
 }
 
@@ -192,20 +206,22 @@ sub close {
   my $file = $self->{file};
   my $table;
   my $did_save;
-
+  
   for $table (values %{$self->{tables}}) {
     $table->close if ref($table);
   }
   return 1 unless $self->{mode} & (O_RDWR | O_CREAT);
 
+  my $lock = delete $self->{write_lock}; # Do not store lock objects
+
   if ($HAVE_DATA_DUMPER) {
-    my $fh   = new FileHandle "> $file/meta";
+    my $fh   = new FileHandle "> $file/meta.$$";
     if ($fh) {
       my $dumper = new Data::Dumper [$self],['self'];
       $fh->print('my ');
       $fh->print($dumper->Dumpxs);
       $fh->close;
-      $did_save = 1;
+      $did_save = rename "$file/meta.$$", "$file/meta";
     } else {
       croak "Could not open '$file/meta' for writing: $!";
       # never reached: return unless $HAVE_STORABLE;
@@ -213,13 +229,17 @@ sub close {
   }
 
   if ($HAVE_STORABLE) {
-    if (!eval {Storable::store($self, "$file/catalog")}) {
-      croak "Could not open '$file/catalog' for writing: $!";
+    if (!eval {Storable::store($self, "$file/catalog.$$")}) {
+      unlink "$file/catalog.$$";
+      croak "Could not open '$file/catalog.$$' for writing: $!";
       # never reached: return unless $did_save;
     } else {
-      $did_save++;
+      $did_save = rename "$file/catalog.$$", "$file/catalog";
     }
   }
+
+  $lock->release;
+  
   undef $_[0];
   $did_save;
 }
@@ -273,7 +293,7 @@ sub create_table {
 =head2 C<$db-E<gt>table(name =E<gt>> I<tname>C<);>
 
 Open a new table with name I<tname>. The method
-returns a table handle (C<WAIT::Table::Handle).
+returns a table handle (C<WAIT::Table::Handle>).
 
 =cut
 

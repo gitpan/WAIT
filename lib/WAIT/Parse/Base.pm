@@ -4,9 +4,9 @@
 # Author          : Ulrich Pfeifer
 # Created On      : Fri Sep  6 09:50:53 1996
 # Last Modified By: Ulrich Pfeifer
-# Last Modified On: Sun Nov 22 18:44:42 1998
+# Last Modified On: Fri Apr  7 13:59:40 2000
 # Language        : CPerl
-# Update Count    : 23
+# Update Count    : 24
 # Status          : Unknown, Use with caution!
 # 
 # Copyright (c) 1996-1997, Ulrich Pfeifer
@@ -42,7 +42,7 @@ sub split {
 }
 
 sub tag {
-  ({text => 1}, $_[0]);
+  ({text => 1}, $_[1]);
 }
 
 1;

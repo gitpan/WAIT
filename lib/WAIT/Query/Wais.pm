@@ -5,7 +5,7 @@
 ;# Author          : Ulrich Pfeifer
 ;# Created On      : Fri Sep 13 15:54:19 1996
 ;# Last Modified By: Ulrich Pfeifer
-;# Last Modified On: Sun Nov 22 18:44:39 1998
+;# Last Modified On: Sun Nov 22 18:44:28 1998
 ;# Language        : CPerl
 ;# Update Count    : 129
 ;# Status          : Unknown, Use with caution!
@@ -268,7 +268,6 @@ yyloop: while(1)
     $yyval = $yyvs[$yyvsp+1-$yym];
     switch:
     {
-       1; # make perl happy if switch empty (Ulrich Pfeifer)
 if ($yyn == 5) {
 { $yyval = $yyval->merge($yyvs[$yyvsp-0]); 
 last switch;
@@ -388,7 +387,7 @@ last switch;
 } # yyparse
 use strict;
 sub yyerror {
-  print "yyeror: @_ $.\n";
+  warn "yyerror: @_ $.\n";
 }
 
 for (qw(and or not phonix soundex)) {
@@ -412,7 +411,7 @@ sub yylex1 {
   } else {
     $verbose = $VERBOSE{$token};
   }
-  print "yylex($token=$verbose$val)\n";
+  warn "yylex($token=$verbose$val)\n";
   return $token;
 }
 
